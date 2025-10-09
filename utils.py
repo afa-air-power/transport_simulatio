@@ -63,4 +63,4 @@ def draw_entities(screen, sim, center_x, center_y):
         pygame.draw.circle(screen, p.color, (int(x), int(y)), int(p.size))
 
     for light in sim.controller.lights.values():
-        light.draw(screen, center_x, center_y)tt
+        light.draw(screen, center_x, center_y)

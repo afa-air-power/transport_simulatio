@@ -40,7 +40,7 @@ class Slider(UIElement):
         pygame.draw.rect(screen, UI_BORDER, self.rect, 2, border_radius=10)
         handle_pos = self.rect.x + (self.value - self.min_val) / (self.max_val - self.min_val) * self.rect.width
         pygame.draw.circle(screen, UI_HOVER, (int(handle_pos), self.rect.centery), 12)
-        text = f"{self.text}: {self.value:.1f}"
+        text = f"{self.text}: {int(self.value) if self.text == 'Num Lanes' else self.value:.1f}"
         text_surf = font.render(text, True, UI_TEXT)
         screen.blit(text_surf, (self.rect.x + 10, self.rect.y - 25))
 
@@ -66,6 +66,8 @@ class UIManager:
         y += 60
         self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 40), 'Switch Mode', self.switch_mode)
         y += 60
+        self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 40), 'Reset Sim', self.reset_sim)
+        y += 60
         self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 1, 10, sim.interval_min, 'Min Interval', self.set_min_interval)
         y += 50
         self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 1, 20, sim.interval_max, 'Max Interval', self.set_max_interval)
@@ -79,6 +81,8 @@ class UIManager:
         self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 1, 5, sim.yellow_time, 'Yellow Time', self.set_yellow_time)
         y += 50
         self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 10, 60, sim.red_time, 'Red Time (Static)', self.set_red_time)
+        y += 50
+        self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 2, 5, sim.num_lanes, 'Num Lanes', self.set_num_lanes)
 
     def add_button(self, rect, text, callback):
         self.elements.append(Button(rect, text, callback))
@@ -109,6 +113,11 @@ class UIManager:
     def switch_mode(self):
         self.sim.controller.mode = 'dynamic' if self.sim.controller.mode == 'static' else 'static'
 
+    def reset_sim(self):
+        self.sim.cars = []
+        self.sim.peds = []
+        self.sim.completed_wait_times = []
+
     def set_min_interval(self, val):
         self.sim.interval_min = val
         if val > self.sim.interval_max:
@@ -137,3 +146,8 @@ class UIManager:
 
     def set_red_time(self, val):
         self.sim.red_time = val
+
+    def set_num_lanes(self, val):
+        self.sim.num_lanes = int(val)
+        self.sim.cars = []
+        self.sim.peds = []

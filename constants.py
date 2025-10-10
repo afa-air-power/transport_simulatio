@@ -1,6 +1,6 @@
 # constants.py
 import pygame
-
+import math
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 900
 UI_PANEL_WIDTH = 300
@@ -30,6 +30,8 @@ LIGHT_RED = 30
 MAX_CARS = 200
 SPEED_MIN = 8.33  # m/s (30 km/h)
 SPEED_MAX = 33.33  # m/s (120 km/h)
+TURN_RADIUS = LANE_WIDTH * 1.5  # For arc turns
+SIDEWALK_WIDTH = 10
 
 # Colors
 RED = (255, 0, 0)
@@ -56,4 +58,18 @@ TURN_HEADINGS = {
     'from_east': {0: (-1, 0), 1: (0, -1), 2: (0, 1)},
     'from_north': {0: (0, 1), 1: (-1, 0), 2: (1, 0)},
     'from_south': {0: (0, -1), 1: (1, 0), 2: (-1, 0)}
+}
+
+TURN_CENTERS = {
+    'from_west': {1: (0, TURN_RADIUS), 2: (0, -TURN_RADIUS)},
+    'from_east': {1: (0, -TURN_RADIUS), 2: (0, TURN_RADIUS)},
+    'from_north': {1: (-TURN_RADIUS, 0), 2: (TURN_RADIUS, 0)},
+    'from_south': {1: (TURN_RADIUS, 0), 2: (-TURN_RADIUS, 0)}
+}
+
+TURN_ANGLES = {
+    'from_west': {0: None, 1: (math.pi, math.pi / 2), 2: (math.pi, 3 * math.pi / 2)},
+    'from_east': {0: None, 1: (0, 3 * math.pi / 2), 2: (0, math.pi / 2)},
+    'from_north': {0: None, 1: (math.pi / 2, math.pi), 2: (math.pi / 2, 0)},
+    'from_south': {0: None, 1: (3 * math.pi / 2, 0), 2: (3 * math.pi / 2, math.pi)}
 }

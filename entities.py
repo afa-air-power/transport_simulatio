@@ -20,6 +20,11 @@ class Vehicle:
             self.color = (random.randint(0, 100), random.randint(0, 100), random.randint(150, 255))
         self.dist_to_inter = ROAD_SIZE
         self.has_turned = False
+        self.turning = False
+        self.turn_center = (0, 0)
+        self.turn_angle = 0
+        self.turn_start_angle = 0
+        self.turn_end_angle = 0
         self.stopped = False
         self.wait_time = 0
         self.mass = random.uniform(800, 1500)
@@ -47,7 +52,7 @@ class Vehicle:
             'from_south': (0, -1)
         }[self.dir_in]
 
-    def update_lane_pos(self, num_lanes=NUM_LANES):
+    def update_lane_pos(self, num_lanes):
         offset = - (num_lanes * LANE_WIDTH) / 2 + self.lane * LANE_WIDTH + LANE_WIDTH / 2
         if self.heading[0] != 0:
             self.pos = (self.pos[0], offset if self.heading[0] > 0 else -offset)
@@ -61,30 +66,52 @@ class Vehicle:
             self.current_speed = max(self.current_speed - self.brake_rate * dt, target_speed)
 
     def move(self, dt):
-        self.pos = (self.pos[0] + self.heading[0] * self.current_speed * dt,
-                    self.pos[1] + self.heading[1] * self.current_speed * dt)
-        self.dist_to_inter -= self.current_speed * dt
+        if self.turning:
+            angular_speed = self.current_speed / TURN_RADIUS
+            self.turn_angle -= angular_speed * dt if (self.turn_end_angle - self.turn_start_angle) % (2 * math.pi) > math.pi else angular_speed * dt  # Direction based on turn
+            self.pos = (self.turn_center[0] + TURN_RADIUS * math.cos(self.turn_angle),
+                        self.turn_center[1] + TURN_RADIUS * math.sin(self.turn_angle))
+            self.heading = (math.cos(self.turn_angle), math.sin(self.turn_angle))
+            if abs(self.turn_angle - self.turn_end_angle) < 0.01:
+                self.turning = False
+                self.has_turned = True
+                self.dist_to_inter = TURN_RADIUS * math.pi / 2  # Approximate distance traveled during turn
+        else:
+            self.pos = (self.pos[0] + self.heading[0] * self.current_speed * dt,
+                        self.pos[1] + self.heading[1] * self.current_speed * dt)
+            self.dist_to_inter -= self.current_speed * dt
+
+    def start_turn(self):
+        if self.turn == 0:
+            return False
+        self.turn_center = (self.pos[0] + TURN_CENTERS[self.dir_in][self.turn][0],
+                            self.pos[1] + TURN_CENTERS[self.dir_in][self.turn][1])
+        self.turn_start_angle, self.turn_end_angle = TURN_ANGLES[self.dir_in][self.turn]
+        self.turn_angle = self.turn_start_angle
+        self.turning = True
+        return True
 
 class Pedestrian:
-    def __init__(self, cross, group_pos=None):
+    def __init__(self, cross, group_pos=None, num_lanes=NUM_LANES):
         self.cross = cross
         self.size = random.uniform(PED_SIZE_MIN, PED_SIZE_MAX)
         self.speed = random.uniform(PED_SPEED_MIN, PED_SPEED_MAX)
         self.color = (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255))  # Random color
-        self.pos = group_pos if group_pos else self.get_initial_pos()
+        self.pos = group_pos if group_pos else self.get_initial_pos(num_lanes)
         self.heading = self.get_initial_heading()
         self.current_speed = 0
         self.stopped = True
         self.wait_time = 0
-        self.goal = self.get_goal()  # Goal position across the road
+        self.goal = self.get_goal(num_lanes)  # Goal position across the road
 
-    def get_initial_pos(self):
+    def get_initial_pos(self, num_lanes):
         side = random.choice([-1, 1])
         offset = random.uniform(-10, 10)  # Slight random offset for realism
+        sidewalk_offset = num_lanes * LANE_WIDTH / 2 + SIDEWALK_WIDTH / 2 + 10
         if self.cross == 'horizontal':
-            return (offset, side * (NUM_LANES * LANE_WIDTH / 2 + 10))
+            return (offset, side * sidewalk_offset)
         else:
-            return (side * (NUM_LANES * LANE_WIDTH / 2 + 10), offset)
+            return (side * sidewalk_offset, offset)
 
     def get_initial_heading(self):
         if self.cross == 'horizontal':
@@ -92,7 +119,8 @@ class Pedestrian:
         else:
             return (-self.pos[0] / abs(self.pos[0]), 0)
 
-    def get_goal(self):
+    def get_goal(self, num_lanes):
+        sidewalk_offset = num_lanes * LANE_WIDTH / 2 + SIDEWALK_WIDTH / 2 + 10
         if self.cross == 'horizontal':
             return (self.pos[0], -self.pos[1])
         else:

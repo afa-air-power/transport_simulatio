@@ -21,30 +21,31 @@ class Simulation:
         self.green_time = LIGHT_GREEN
         self.yellow_time = LIGHT_YELLOW
         self.red_time = LIGHT_RED
+        self.num_lanes = NUM_LANES
 
     def generate_entities(self, current_time):
         if len(self.cars) >= MAX_CARS:
             return
         for d in DIR_INS:
             if current_time > self.next_car_times[d]:
-                self.cars.append(Vehicle(d))
+                self.cars.append(Vehicle(d, self.num_lanes))
                 interval = random.uniform(self.interval_min, self.interval_max)
                 self.next_car_times[d] = current_time + interval
         for cross in ['horizontal', 'vertical']:
             if current_time > self.next_ped_times[cross]:
                 if random.random() < PED_GROUP_PROB:
                     group_size = random.randint(*PED_GROUP_SIZE)
-                    base_pos = Pedestrian(cross).get_initial_pos()  # Base for group
+                    base_pos = Pedestrian(cross, num_lanes=self.num_lanes).get_initial_pos(self.num_lanes)  # Base for group
                     for _ in range(group_size):
                         group_offset = (random.uniform(-3, 3), random.uniform(-3, 3))
                         group_pos = (base_pos[0] + group_offset[0], base_pos[1] + group_offset[1])
-                        self.peds.append(Pedestrian(cross, group_pos))
+                        self.peds.append(Pedestrian(cross, group_pos, self.num_lanes))
                 else:
-                    self.peds.append(Pedestrian(cross))
+                    self.peds.append(Pedestrian(cross, num_lanes=self.num_lanes))
                 self.next_ped_times[cross] = current_time + random.uniform(PED_INTERVAL_MIN, PED_INTERVAL_MAX)
 
     def group_cars(self):
-        groups = {d: {l: [] for l in range(NUM_LANES)} for d in DIR_INS}
+        groups = {d: {l: [] for l in range(self.num_lanes)} for d in DIR_INS}
         for c in self.cars:
             if not c.has_turned:
                 groups[c.dir_in][c.lane].append(c)
@@ -76,9 +77,9 @@ class Simulation:
             road = 'horizontal' if c.dir_in in ('from_west', 'from_east') else 'vertical'
             light_color = self.controller.get_color(road)
 
-            if not c.has_turned:
+            if not c.has_turned and not c.turning:
                 # Lane change logic
-                target_lane = 0 if c.turn == 1 else (NUM_LANES - 1 if c.turn == 2 else None)
+                target_lane = 0 if c.turn == 1 else (self.num_lanes - 1 if c.turn == 2 else None)
                 if target_lane is None and c.dist_to_inter < VISIBILITY * 1.5:
                     lane_cars = groups[c.dir_in][c.lane]
                     if c in lane_cars:
@@ -87,7 +88,7 @@ class Simulation:
                         if front and front.current_speed < c.target_speed * 0.8 and c.dist_to_inter > 50:
                             for dl in [-1, 1]:
                                 tl = c.lane + dl
-                                if 0 <= tl < NUM_LANES:
+                                if 0 <= tl < self.num_lanes:
                                     safe = True
                                     for other in groups[c.dir_in][tl]:
                                         if abs(c.dist_to_inter - other.dist_to_inter) < SAFE_LANE_CHANGE_DIST:
@@ -95,7 +96,7 @@ class Simulation:
                                             break
                                     if safe:
                                         c.lane = tl
-                                        c.update_lane_pos()
+                                        c.update_lane_pos(self.num_lanes)
                                         break
 
                 if target_lane is not None and target_lane != c.lane and 50 < c.dist_to_inter < 200:
@@ -106,15 +107,15 @@ class Simulation:
                             break
                     if safe:
                         c.lane = target_lane
-                        c.update_lane_pos()
+                        c.update_lane_pos(self.num_lanes)
 
             # Target speed
             target_speed = c.target_speed
-            if c.dist_to_inter < VISIBILITY:
+            if c.dist_to_inter < VISIBILITY and not c.turning:
                 if light_color == 'red' or (light_color == 'yellow' and c.dist_to_inter / max(1, c.current_speed) > self.controller.yellow_time + 1):
                     target_speed = 0
 
-            if not c.has_turned:
+            if not c.has_turned and not c.turning:
                 lane_cars = groups.get(c.dir_in, {}).get(c.lane, [])
                 if c in lane_cars:
                     idx = lane_cars.index(c)
@@ -140,12 +141,13 @@ class Simulation:
                 c.stopped = False
 
             # Turning
-            if c.dist_to_inter <= 0 and not c.has_turned:
+            if c.dist_to_inter <= 0 and not c.has_turned and not c.turning:
                 if light_color == 'green' or (light_color == 'yellow' and c.dist_to_inter > -10):
-                    c.heading = TURN_HEADINGS[c.dir_in][c.turn]
-                    c.has_turned = True
-                    c.dist_to_inter = -c.dist_to_inter  # Now moving away
-                    c.update_lane_pos()  # Adjust lane post-turn if needed
+                    if c.turn == 0:
+                        c.has_turned = True
+                        c.dist_to_inter = -c.dist_to_inter
+                    else:
+                        c.start_turn()
                 else:
                     c.current_speed = 0
 
@@ -158,8 +160,8 @@ class Simulation:
         new_peds = []
         for p in self.peds:
             can_go = self.controller.get_ped_color(p.cross) == 'green'
-            p.move(dt, can_go, self.peds)
-            crossed = abs(p.pos[0]) > NUM_LANES * LANE_WIDTH / 2 + 10 or abs(p.pos[1]) > NUM_LANES * LANE_WIDTH / 2 + 10
+            p.move(dt, can_go, self.peds, self.cars)
+            crossed = abs(p.pos[0]) > self.num_lanes * LANE_WIDTH / 2 + SIDEWALK_WIDTH + 10 or abs(p.pos[1]) > self.num_lanes * LANE_WIDTH / 2 + SIDEWALK_WIDTH + 10
             if not crossed:
                 new_peds.append(p)
         self.peds = new_peds

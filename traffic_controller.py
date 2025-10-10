@@ -10,11 +10,21 @@ class LightLens:
         self.offset = offset
         self.active = False
 
-    def draw(self, screen, base_pos, active_color):
+    def draw(self, screen, base_pos, current_time):
         pos = (base_pos[0] + self.offset[0], base_pos[1] + self.offset[1])
         fill_color = self.lens_color if self.active else GRAY
         pygame.draw.circle(screen, fill_color, pos, 8)
         pygame.draw.circle(screen, BLACK, pos, 8, 1)  # Border
+        if self.active:
+            glow = pygame.Surface((30, 30), SRCALPHA)
+            if self.lens_color == YELLOW:
+                glow_alpha = 80 + 40 * math.sin(current_time * 5)
+            elif self.lens_color == RED:
+                glow_alpha = 80 + 40 * math.sin(current_time * 2)
+            else:  # GREEN
+                glow_alpha = 80 + 40 * math.sin(current_time * 3)
+            pygame.draw.circle(glow, (*self.lens_color, int(glow_alpha)), (15, 15), 15)
+            screen.blit(glow, (pos[0] - 15, pos[1] - 15))
 
 class TrafficLight:
     def __init__(self, position, orientation):
@@ -31,28 +41,16 @@ class TrafficLight:
         if self.current_color != color:
             self.current_color = color
             for lens in self.lenses:
-                lens.active = False
-            if color == 'red':
-                self.lenses[0].active = True
-            elif color == 'yellow':
-                self.lenses[1].active = True
-            elif color == 'green':
-                self.lenses[2].active = True
+                lens.active = lens.lens_color == {'red': RED, 'yellow': YELLOW, 'green': GREEN}[color]
 
     def draw(self, screen, center_x, center_y):
         base_pos = (center_x + self.position[0], center_y + self.position[1])
         # Draw housing
         housing_rect = pygame.Rect(base_pos[0] - 10, base_pos[1] - 30, 20, 60)
         pygame.draw.rect(screen, BLACK, housing_rect, border_radius=5)
-        # Draw lenses
+        current_time = time.time()
         for lens in self.lenses:
-            lens.draw(screen, base_pos, self.current_color)
-        # Glow for yellow
-        if self.current_color == 'yellow':
-            glow_pos = (base_pos[0], base_pos[1])
-            glow = pygame.Surface((40, 40), SRCALPHA)
-            pygame.draw.circle(glow, (*YELLOW, 80 + 40 * math.sin(time.time() * 5)), (20, 20), 20)
-            screen.blit(glow, (glow_pos[0] - 20, glow_pos[1] - 20))
+            lens.draw(screen, base_pos, current_time)
 
 class TrafficController:
     def __init__(self):

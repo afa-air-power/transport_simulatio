@@ -16,21 +16,26 @@ class Crosswalk:
                 pygame.draw.line(screen, WHITE, (center_x + offset, center_y - 30), (center_x + offset, center_y + 30), 3)
                 pygame.draw.line(screen, WHITE, (center_x - offset, center_y - 30), (center_x - offset, center_y + 30), 3)
 
-def draw_roads(screen, center_x, center_y, num_lanes=NUM_LANES):
+def draw_roads(screen, center_x, center_y, num_lanes):
     road_width = num_lanes * LANE_WIDTH
-    # Horizontal road
-    pygame.draw.rect(screen, GRAY, (center_x - ROAD_SIZE, center_y - road_width / 2, ROAD_SIZE * 2, road_width))
-    # Vertical road
-    pygame.draw.rect(screen, GRAY, (center_x - road_width / 2, center_y - ROAD_SIZE, road_width, ROAD_SIZE * 2))
+    total_road_width = road_width + 2 * SIDEWALK_WIDTH
+    # Horizontal road with sidewalks
+    pygame.draw.rect(screen, LIGHT_GRAY, (center_x - ROAD_SIZE, center_y - total_road_width / 2, ROAD_SIZE * 2, SIDEWALK_WIDTH))  # Bottom sidewalk
+    pygame.draw.rect(screen, GRAY, (center_x - ROAD_SIZE, center_y - road_width / 2, ROAD_SIZE * 2, road_width))  # Road
+    pygame.draw.rect(screen, LIGHT_GRAY, (center_x - ROAD_SIZE, center_y + road_width / 2, ROAD_SIZE * 2, SIDEWALK_WIDTH))  # Top sidewalk
+    # Vertical road with sidewalks
+    pygame.draw.rect(screen, LIGHT_GRAY, (center_x - total_road_width / 2, center_y - ROAD_SIZE, SIDEWALK_WIDTH, ROAD_SIZE * 2))  # Left sidewalk
+    pygame.draw.rect(screen, GRAY, (center_x - road_width / 2, center_y - ROAD_SIZE, road_width, ROAD_SIZE * 2))  # Road
+    pygame.draw.rect(screen, LIGHT_GRAY, (center_x + road_width / 2, center_y - ROAD_SIZE, SIDEWALK_WIDTH, ROAD_SIZE * 2))  # Right sidewalk
 
     # Lane lines
     for i in range(1, num_lanes):
         # Horizontal
         y = center_y - road_width / 2 + i * LANE_WIDTH
-        pygame.draw.line(screen, WHITE, (center_x - ROAD_SIZE, y), (center_x + ROAD_SIZE, y), 2, capstyle=pygame.CAP_ROUND)
+        pygame.draw.line(screen, WHITE, (center_x - ROAD_SIZE, y), (center_x + ROAD_SIZE, y), 2)
         # Vertical
         x = center_x - road_width / 2 + i * LANE_WIDTH
-        pygame.draw.line(screen, WHITE, (x, center_y - ROAD_SIZE), (x, center_y + ROAD_SIZE), 2, capstyle=pygame.CAP_ROUND)
+        pygame.draw.line(screen, WHITE, (x, center_y - ROAD_SIZE), (x, center_y + ROAD_SIZE), 2)
 
     # Crosswalks
     horizontal_crosswalk = Crosswalk('horizontal')

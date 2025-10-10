@@ -4,13 +4,13 @@ import math
 from constants import *
 
 class Vehicle:
-    def __init__(self, dir_in):
+    def __init__(self, dir_in, num_lanes=NUM_LANES):
         self.dir_in = dir_in
         self.turn = random.choices([0, 1, 2], TURN_PROBS)[0]
-        self.lane = random.randint(0, NUM_LANES - 1)
+        self.lane = random.randint(0, num_lanes - 1)
         self.target_speed = random.uniform(SPEED_MIN, SPEED_MAX)
         self.current_speed = 0
-        self.pos = self.get_initial_pos()
+        self.pos = self.get_initial_pos(num_lanes)
         self.heading = self.get_initial_heading()
         if self.turn == 0:
             self.color = (random.randint(0, 100), random.randint(150, 255), random.randint(0, 100))
@@ -28,8 +28,8 @@ class Vehicle:
         self.accel_rate = random.uniform(1.5, 3.0)
         self.brake_rate = random.uniform(4.0, 6.0)
 
-    def get_initial_pos(self):
-        offset = - (NUM_LANES * LANE_WIDTH) / 2 + self.lane * LANE_WIDTH + LANE_WIDTH / 2
+    def get_initial_pos(self, num_lanes):
+        offset = - (num_lanes * LANE_WIDTH) / 2 + self.lane * LANE_WIDTH + LANE_WIDTH / 2
         if self.dir_in == 'from_west':
             return (-ROAD_SIZE, offset)
         elif self.dir_in == 'from_east':
@@ -47,8 +47,8 @@ class Vehicle:
             'from_south': (0, -1)
         }[self.dir_in]
 
-    def update_lane_pos(self):
-        offset = - (NUM_LANES * LANE_WIDTH) / 2 + self.lane * LANE_WIDTH + LANE_WIDTH / 2
+    def update_lane_pos(self, num_lanes=NUM_LANES):
+        offset = - (num_lanes * LANE_WIDTH) / 2 + self.lane * LANE_WIDTH + LANE_WIDTH / 2
         if self.heading[0] != 0:
             self.pos = (self.pos[0], offset if self.heading[0] > 0 else -offset)
         else:
@@ -98,8 +98,8 @@ class Pedestrian:
         else:
             return (-self.pos[0], self.pos[1])
 
-    def calculate_forces(self, peds, dt):
-        # Simple Social Force: attraction to goal + repulsion from others
+    def calculate_forces(self, peds, cars, dt):
+        # Attraction to goal
         dx, dy = self.goal[0] - self.pos[0], self.goal[1] - self.pos[1]
         dist_to_goal = math.hypot(dx, dy)
         if dist_to_goal > 0:
@@ -107,23 +107,33 @@ class Pedestrian:
         else:
             attraction = (0, 0)
 
-        repulsion = (0, 0)
+        # Repulsion from other peds
+        repulsion_peds = (0, 0)
         for other in peds:
             if other != self:
                 dx_o, dy_o = other.pos[0] - self.pos[0], other.pos[1] - self.pos[1]
                 dist = math.hypot(dx_o, dy_o)
-                if dist < 5 and dist > 0:  # Repulsion range
+                if dist < 5 and dist > 0:
                     rep_force = PED_REPULSION / dist ** 2
-                    repulsion = (repulsion[0] - dx_o / dist * rep_force, repulsion[1] - dy_o / dist * rep_force)
+                    repulsion_peds = (repulsion_peds[0] - dx_o / dist * rep_force, repulsion_peds[1] - dy_o / dist * rep_force)
 
-        total_force = (attraction[0] + repulsion[0], attraction[1] + repulsion[1])
+        # Repulsion from cars (stronger)
+        repulsion_cars = (0, 0)
+        for car in cars:
+            dx_c, dy_c = car.pos[0] - self.pos[0], car.pos[1] - self.pos[1]
+            dist = math.hypot(dx_c, dy_c)
+            if dist < 10 and dist > 0:
+                rep_force = PED_REPULSION * 2 / dist ** 2  # Stronger for cars
+                repulsion_cars = (repulsion_cars[0] - dx_c / dist * rep_force, repulsion_cars[1] - dy_c / dist * rep_force)
+
+        total_force = (attraction[0] + repulsion_peds[0] + repulsion_cars[0], attraction[1] + repulsion_peds[1] + repulsion_cars[1])
         norm = math.hypot(*total_force)
         if norm > 0:
             self.heading = (total_force[0] / norm, total_force[1] / norm)
 
-    def move(self, dt, can_go, peds):
+    def move(self, dt, can_go, peds, cars):
         if can_go:
-            self.calculate_forces(peds, dt)
+            self.calculate_forces(peds, cars, dt)
             self.current_speed = self.speed
         else:
             self.current_speed = 0

@@ -76,35 +76,37 @@ class Simulation:
             road = 'horizontal' if c.dir_in in ('from_west', 'from_east') else 'vertical'
             light_color = self.controller.get_color(road)
 
-            # Lane change logic
-            target_lane = 0 if c.turn == 1 else (NUM_LANES - 1 if c.turn == 2 else None)
-            if target_lane is None and c.dist_to_inter < VISIBILITY * 1.5:
-                lane_cars = groups[c.dir_in][c.lane]
-                idx = lane_cars.index(c)
-                front = lane_cars[idx - 1] if idx > 0 else None
-                if front and front.current_speed < c.target_speed * 0.8 and c.dist_to_inter > 50:
-                    for dl in [-1, 1]:
-                        tl = c.lane + dl
-                        if 0 <= tl < NUM_LANES:
-                            safe = True
-                            for other in groups[c.dir_in][tl]:
-                                if abs(c.dist_to_inter - other.dist_to_inter) < SAFE_LANE_CHANGE_DIST:
-                                    safe = False
-                                    break
-                            if safe:
-                                c.lane = tl
-                                c.update_lane_pos()
-                                break
+            if not c.has_turned:
+                # Lane change logic
+                target_lane = 0 if c.turn == 1 else (NUM_LANES - 1 if c.turn == 2 else None)
+                if target_lane is None and c.dist_to_inter < VISIBILITY * 1.5:
+                    lane_cars = groups[c.dir_in][c.lane]
+                    if c in lane_cars:
+                        idx = lane_cars.index(c)
+                        front = lane_cars[idx - 1] if idx > 0 else None
+                        if front and front.current_speed < c.target_speed * 0.8 and c.dist_to_inter > 50:
+                            for dl in [-1, 1]:
+                                tl = c.lane + dl
+                                if 0 <= tl < NUM_LANES:
+                                    safe = True
+                                    for other in groups[c.dir_in][tl]:
+                                        if abs(c.dist_to_inter - other.dist_to_inter) < SAFE_LANE_CHANGE_DIST:
+                                            safe = False
+                                            break
+                                    if safe:
+                                        c.lane = tl
+                                        c.update_lane_pos()
+                                        break
 
-            if target_lane is not None and target_lane != c.lane and 50 < c.dist_to_inter < 200:
-                safe = True
-                for other in groups[c.dir_in][target_lane]:
-                    if abs(c.dist_to_inter - other.dist_to_inter) < SAFE_LANE_CHANGE_DIST:
-                        safe = False
-                        break
-                if safe:
-                    c.lane = target_lane
-                    c.update_lane_pos()
+                if target_lane is not None and target_lane != c.lane and 50 < c.dist_to_inter < 200:
+                    safe = True
+                    for other in groups[c.dir_in][target_lane]:
+                        if abs(c.dist_to_inter - other.dist_to_inter) < SAFE_LANE_CHANGE_DIST:
+                            safe = False
+                            break
+                    if safe:
+                        c.lane = target_lane
+                        c.update_lane_pos()
 
             # Target speed
             target_speed = c.target_speed
@@ -112,25 +114,29 @@ class Simulation:
                 if light_color == 'red' or (light_color == 'yellow' and c.dist_to_inter / max(1, c.current_speed) > self.controller.yellow_time + 1):
                     target_speed = 0
 
-            lane_cars = groups.get(c.dir_in, {}).get(c.lane, [])
-            idx = lane_cars.index(c) if c in lane_cars else -1
-            front = lane_cars[idx - 1] if idx > 0 else None
-            if front:
-                dist_front = c.dist_to_inter - front.dist_to_inter - (c.length + front.length) / 2
-                if dist_front < SAFE_DIST + c.current_speed * dt:
-                    target_speed = min(target_speed, front.current_speed)
-                if dist_front < SAFE_DIST / 2:
-                    target_speed = 0
+            if not c.has_turned:
+                lane_cars = groups.get(c.dir_in, {}).get(c.lane, [])
+                if c in lane_cars:
+                    idx = lane_cars.index(c)
+                    front = lane_cars[idx - 1] if idx > 0 else None
+                    if front:
+                        dist_front = c.dist_to_inter - front.dist_to_inter - (c.length + front.length) / 2
+                        if dist_front < SAFE_DIST + c.current_speed * dt:
+                            target_speed = min(target_speed, front.current_speed)
+                        if dist_front < SAFE_DIST / 2:
+                            target_speed = 0
 
             c.accelerate(dt, target_speed)
             c.move(dt)
 
-            if c.current_speed < 0.1:
-                c.stopped = True
+            # Wait time when approaching red or slowed
+            if c.dist_to_inter < VISIBILITY and c.current_speed < c.target_speed * 0.9:
                 c.wait_time += dt
+                c.stopped = True
             else:
                 if c.stopped:
                     self.completed_wait_times.append(c.wait_time)
+                    c.wait_time = 0  # Reset after adding
                 c.stopped = False
 
             # Turning
@@ -163,10 +169,15 @@ class Simulation:
             for c2 in self.cars[i+1:]:
                 dist = math.hypot(c1.pos[0] - c2.pos[0], c1.pos[1] - c2.pos[1])
                 if dist < (c1.length + c2.length) / 2:
-                    pass
-        # Ped-car avoidance (simple stop if close)
+                    # Instead of pass, slow down or stop
+                    if c1.current_speed > c2.current_speed:
+                        c1.current_speed = max(0, c1.current_speed - c1.brake_rate * 0.1)
+                    else:
+                        c2.current_speed = max(0, c2.current_speed - c2.brake_rate * 0.1)
+        # Ped-car avoidance
         for p in self.peds:
             for c in self.cars:
                 dist = math.hypot(p.pos[0] - c.pos[0], p.pos[1] - c.pos[1])
-                if dist < 5:
-                    p.current_speed = 0
+                if dist < 10:  # Increased range
+                    p.current_speed *= 0.5  # Slow ped
+                    c.current_speed *= 0.5  # Slow car

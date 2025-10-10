@@ -1,6 +1,6 @@
 # constants.py
 import pygame
-import math
+
 SCREEN_WIDTH = 1200
 SCREEN_HEIGHT = 900
 UI_PANEL_WIDTH = 300
@@ -32,7 +32,7 @@ SPEED_MIN = 8.33  # m/s (30 km/h)
 SPEED_MAX = 33.33  # m/s (120 km/h)
 TURN_RADIUS = LANE_WIDTH * 1.5  # For arc turns
 SIDEWALK_WIDTH = 10
-
+import math
 # Colors
 RED = (255, 0, 0)
 GREEN = (0, 255, 0)

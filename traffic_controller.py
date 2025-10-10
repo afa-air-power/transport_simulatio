@@ -54,14 +54,19 @@ class TrafficLight:
 
 class TrafficController:
     def __init__(self):
-        self.state = 'horizontal_green'
+        self.phases = [
+            {'duration': 30, 'horiz': 'green', 'vert': 'red'},
+            {'duration': 3, 'horiz': 'yellow', 'vert': 'red'},
+            {'duration': 2, 'horiz': 'red', 'vert': 'red'},  # All red for peds
+            {'duration': 30, 'vert': 'green', 'horiz': 'red'},
+            {'duration': 3, 'vert': 'yellow', 'horiz': 'red'},
+            {'duration': 2, 'vert': 'red', 'horiz': 'red'}  # All red for peds
+        ]
+        self.current_phase = 0
         self.timer = 0
-        self.green_time = LIGHT_GREEN
-        self.yellow_time = LIGHT_YELLOW
-        self.red_time = LIGHT_RED
-        self.mode = 'static'
+        self.mode = 'static'  # or 'dynamic', but for now static with phases
         self.lights = {
-            'h_left': TrafficLight((-60, -60), 'horizontal'),  # Adjusted positions for size
+            'h_left': TrafficLight((-60, -60), 'horizontal'),
             'h_right': TrafficLight((60, 60), 'horizontal'),
             'v_top': TrafficLight((-60, 60), 'vertical'),
             'v_bottom': TrafficLight((60, -60), 'vertical')
@@ -69,57 +74,40 @@ class TrafficController:
         self.update_lights()
 
     def update_lights(self):
-        h_color = self.get_color('horizontal')
-        v_color = self.get_color('vertical')
+        phase = self.phases[self.current_phase]
+        h_color = phase['horiz']
+        v_color = phase['vert']
         self.lights['h_left'].set_color(h_color)
         self.lights['h_right'].set_color(h_color)
         self.lights['v_top'].set_color(v_color)
         self.lights['v_bottom'].set_color(v_color)
 
     def get_color(self, road):
-        if road == 'horizontal':
-            if self.state == 'horizontal_green':
-                return 'green'
-            elif self.state == 'horizontal_yellow':
-                return 'yellow'
-            else:
-                return 'red'
-        else:
-            if self.state == 'vertical_green':
-                return 'green'
-            elif self.state == 'vertical_yellow':
-                return 'yellow'
-            else:
-                return 'red'
+        phase = self.phases[self.current_phase]
+        return phase['horiz'] if road == 'horizontal' else phase['vert']
+
+    def is_all_red(self):
+        phase = self.phases[self.current_phase]
+        return phase['horiz'] == 'red' and phase['vert'] == 'red'
 
     def get_ped_color(self, cross_road):
-        return 'green' if self.get_color(cross_road) == 'red' else 'red'
+        return 'green' if self.is_all_red() else 'red'
 
     def update(self, dt, waiting_h, waiting_v):
         self.timer += dt
-        if self.mode == 'static':
-            if self.state == 'horizontal_green' and self.timer > self.green_time:
-                self.state = 'horizontal_yellow'
-                self.timer = 0
-            elif self.state == 'horizontal_yellow' and self.timer > self.yellow_time:
-                self.state = 'vertical_green'
-                self.timer = 0
-            elif self.state == 'vertical_green' and self.timer > self.green_time:
-                self.state = 'vertical_yellow'
-                self.timer = 0
-            elif self.state == 'vertical_yellow' and self.timer > self.yellow_time:
-                self.state = 'horizontal_green'
-                self.timer = 0
-        else:
-            if 'green' in self.state and self.timer > self.green_time:
-                self.state = self.state.replace('green', 'yellow')
-                self.timer = 0
-            elif 'yellow' in self.state and self.timer > self.yellow_time:
-                sum_sq_h = sum(w ** 2 for w in waiting_h)
-                sum_sq_v = sum(w ** 2 for w in waiting_v)
-                self.state = 'horizontal_green' if sum_sq_h > sum_sq_v else 'vertical_green'
-                self.timer = 0
-                total = sum_sq_h + sum_sq_v + 1
-                self.green_time = 10 + 40 * max(sum_sq_h, sum_sq_v) / total
-
+        if self.timer > self.phases[self.current_phase]['duration']:
+            self.timer = 0
+            self.current_phase = (self.current_phase + 1) % len(self.phases)
         self.update_lights()
+
+    def reorder_phases(self, new_order):
+        self.phases = [self.phases[i] for i in new_order]
+
+    def add_phase(self, duration, horiz, vert):
+        if horiz == 'green' and vert == 'green':
+            return False  # Invalid
+        self.phases.append({'duration': duration, 'horiz': horiz, 'vert': vert})
+        return True
+
+    def remove_phase(self, index):
+        del self.phases[index]

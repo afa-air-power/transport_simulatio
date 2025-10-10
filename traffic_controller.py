@@ -2,7 +2,7 @@
 import time
 from pygame.locals import SRCALPHA
 from constants import *
-
+import math
 class TrafficLight:
     def __init__(self, position, orientation):
         self.position = position

@@ -4,21 +4,14 @@ from constants import *
 
 def draw_roads(screen, center_x, center_y):
     road_width = NUM_LANES * LANE_WIDTH
-    # Horizontal road
     pygame.draw.rect(screen, GRAY, (center_x - ROAD_SIZE, center_y - road_width / 2, ROAD_SIZE * 2, road_width))
-    # Vertical road
     pygame.draw.rect(screen, GRAY, (center_x - road_width / 2, center_y - ROAD_SIZE, road_width, ROAD_SIZE * 2))
-
-    # Lane lines
     for i in range(1, NUM_LANES):
-        # Horizontal
         y = center_y - road_width / 2 + i * LANE_WIDTH
         pygame.draw.line(screen, WHITE, (center_x - ROAD_SIZE, y), (center_x + ROAD_SIZE, y), 1)
-        # Vertical
         x = center_x - road_width / 2 + i * LANE_WIDTH
         pygame.draw.line(screen, WHITE, (x, center_y - ROAD_SIZE), (x, center_y + ROAD_SIZE), 1)
 
-    # Crosswalk lines
     for i in range(5):
         offset = -road_width / 2 - 5 + i * 3
         # Horizontal crosswalk

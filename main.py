@@ -47,7 +47,7 @@ def main():
 
         screen.fill(BLACK)
         center_x, center_y = SIM_WIDTH // 2, SIM_HEIGHT // 2
-        draw_roads(screen, center_x, center_y)
+        draw_roads(screen, center_x, center_y,4)
         draw_entities(screen, sim, center_x, center_y, camera.zoom)
         ui.draw(screen)
 

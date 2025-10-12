@@ -1,82 +1,7 @@
-# ui.py
 import pygame
 from pygame.locals import *
+
 from constants import *
-
-
-class Slider:
-    def __init__(self, rect, min_val, max_val, cur_val, label, callback):
-        self.rect = pygame.Rect(rect)
-        self.min_val = min_val
-        self.max_val = max_val
-        self.cur_val = cur_val
-        self.label = label
-        self.callback = callback
-        self.is_dragging = False
-
-        # Вычисляем позицию ползунка
-        self.slider_width = 10
-        self.slider_pos = self.value_to_pos(cur_val)
-
-    def value_to_pos(self, value):
-        """Преобразует значение в позицию на слайдере"""
-        ratio = (value - self.min_val) / (self.max_val - self.min_val)
-        return self.rect.x + ratio * self.rect.width
-
-    def pos_to_value(self, pos):
-        """Преобразует позицию в значение"""
-        relative_pos = max(0, min(pos - self.rect.x, self.rect.width))
-        ratio = relative_pos / self.rect.width
-        value = self.min_val + ratio * (self.max_val - self.min_val)
-        return round(value, 1)  # Округляем для удобства
-
-    def draw(self, screen, font):
-        # Отрисовка линии слайдера
-        line_rect = pygame.Rect(self.rect.x, self.rect.y + self.rect.height // 2 - 1,
-                                self.rect.width, 2)
-        pygame.draw.rect(screen, (200, 200, 200), line_rect)
-
-        # Отрисовка ползунка
-        slider_rect = pygame.Rect(self.slider_pos - self.slider_width // 2,
-                                  self.rect.y,
-                                  self.slider_width,
-                                  self.rect.height)
-        pygame.draw.rect(screen, (100, 150, 255), slider_rect)
-        pygame.draw.rect(screen, (255, 255, 255), slider_rect, 1)
-
-        # Отрисовка текста
-        label_text = f"{self.label}: {self.cur_val}"
-        text_surface = font.render(label_text, True, (255, 255, 255))
-        text_rect = text_surface.get_rect(midleft=(self.rect.x, self.rect.y - 10))
-        screen.blit(text_surface, text_rect)
-
-    def handle_event(self, event):
-        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-            # Проверяем клик по ползунку
-            slider_rect = pygame.Rect(self.slider_pos - self.slider_width // 2,
-                                      self.rect.y,
-                                      self.slider_width,
-                                      self.rect.height)
-            if slider_rect.collidepoint(event.pos):
-                self.is_dragging = True
-                return True
-
-        elif event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-            if self.is_dragging:
-                self.is_dragging = False
-                return True
-
-        elif event.type == pygame.MOUSEMOTION:
-            if self.is_dragging:
-                # Обновляем позицию ползунка и значение
-                self.slider_pos = max(self.rect.x, min(event.pos[0], self.rect.x + self.rect.width))
-                new_value = self.pos_to_value(self.slider_pos)
-                if new_value != self.cur_val:
-                    self.cur_val = new_value
-                    self.callback(new_value)
-                return True
-
-        return False
 
 class Button:
     def __init__(self, rect, text, callback):
@@ -90,8 +15,8 @@ class Button:
 
     def draw(self, screen, font):
         color = self.hover_color if self.is_hovered else self.color
-        pygame.draw.rect(screen, color, self.rect)
-        pygame.draw.rect(screen, (255, 255, 255), self.rect, 2)
+        pygame.draw.rect(screen, color, self.rect, border_radius=6)
+        pygame.draw.rect(screen, (255, 255, 255), self.rect, 2, border_radius=6)
 
         text_surface = font.render(self.text, True, self.text_color)
         text_rect = text_surface.get_rect(center=self.rect.center)
@@ -107,152 +32,238 @@ class Button:
                 return True
         return False
 
-class PhaseItem:
-    def __init__(self, rect, phase, index, callback):
+
+class Dropdown:
+    def __init__(self, rect, options, selected_index, label, callback):
         self.rect = pygame.Rect(rect)
-        self.phase = phase
-        self.index = index
+        self.options = options
+        self.selected_index = selected_index
+        self.label = label
         self.callback = callback
-        self.hovered = False
-        self.dragging = False
-        self.offset = (0, 0)
+        self.is_open = False
+        self.color = (80, 80, 80)
+        self.hover_color = (120, 120, 120)
 
     def draw(self, screen, font):
-        color = UI_HOVER if self.hovered else UI_ACTIVE
-        pygame.draw.rect(screen, color, self.rect, border_radius=5)
-        pygame.draw.rect(screen, UI_BORDER, self.rect, 2, border_radius=5)
-        text = f"{self.phase['duration']}s H: {self.phase['horiz']} V: {self.phase['vert']}"
-        text_surf = font.render(text, True, UI_TEXT)
-        text_rect = text_surf.get_rect(center=self.rect.center)
-        screen.blit(text_surf, text_rect)
+        # Рисуем основную кнопку
+        color = self.hover_color if self.is_open else self.color
+        pygame.draw.rect(screen, color, self.rect, border_radius=6)
+        pygame.draw.rect(screen, (255, 255, 255), self.rect, 2, border_radius=6)
+
+        # Текст выбранной опции
+        text = f"{self.label}: {self.options[self.selected_index]}"
+        text_surface = font.render(text, True, (255, 255, 255))
+        text_rect = text_surface.get_rect(center=self.rect.center)
+        screen.blit(text_surface, text_rect)
+
+        # Рисуем выпадающий список если открыт
+        if self.is_open:
+            for i, option in enumerate(self.options):
+                option_rect = pygame.Rect(
+                    self.rect.x,
+                    self.rect.y + self.rect.height * (i + 1),
+                    self.rect.width,
+                    self.rect.height
+                )
+                option_color = (100, 100, 150) if i == self.selected_index else self.color
+                pygame.draw.rect(screen, option_color, option_rect, border_radius=4)
+                pygame.draw.rect(screen, (255, 255, 255), option_rect, 1, border_radius=4)
+
+                option_text = font.render(option, True, (255, 255, 255))
+                option_text_rect = option_text.get_rect(center=option_rect.center)
+                screen.blit(option_text, option_text_rect)
 
     def handle_event(self, event):
-        if event.type == MOUSEMOTION:
-            self.hovered = self.rect.collidepoint(event.pos)
-            if self.dragging:
-                self.rect.move_ip(event.rel)
-        if event.type == MOUSEBUTTONDOWN:
-            if self.hovered:
-                self.dragging = True
-                self.offset = (event.pos[0] - self.rect.x, event.pos[1] - self.rect.y)
-        if event.type == MOUSEBUTTONUP:
-            if self.dragging:
-                self.dragging = False
-                if self.callback:
-                    self.callback(self)
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            # Проверяем клик по основной кнопке
+            if self.rect.collidepoint(event.pos):
+                self.is_open = not self.is_open
+                return True
+
+            # Проверяем клик по опциям если открыто
+            if self.is_open:
+                for i in range(len(self.options)):
+                    option_rect = pygame.Rect(
+                        self.rect.x,
+                        self.rect.y + self.rect.height * (i + 1),
+                        self.rect.width,
+                        self.rect.height
+                    )
+                    if option_rect.collidepoint(event.pos):
+                        self.selected_index = i
+                        self.is_open = False
+                        self.callback(self.options[i])
+                        return True
+
+        # Закрываем при клике вне dropdown
+        if event.type == pygame.MOUSEBUTTONDOWN and self.is_open:
+            if not self.rect.collidepoint(event.pos):
+                dropdown_area = pygame.Rect(
+                    self.rect.x,
+                    self.rect.y,
+                    self.rect.width,
+                    self.rect.height * (len(self.options) + 1)
+                )
+                if not dropdown_area.collidepoint(event.pos):
+                    self.is_open = False
+                    return True
+
+        return False
+
 
 class UIManager:
     def __init__(self, sim):
         self.sim = sim
         self.elements = []
-        self.phase_items = []
-        self.font = pygame.font.SysFont('Arial', 20, bold=True)
-        y = 50
+        self.font = pygame.font.Font(None, 20)
+        self.input_active = False
+        self.input_text = ""
+        self.panel_rect = pygame.Rect(SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, SCREEN_HEIGHT)
+        self.last_known_phase = -1
+        self.info_texts = []
+        self.input_rect = pygame.Rect(0, 0, 0, 0) # Инициализация
+        self.rebuild_ui_elements()
+
+    def rebuild_ui_elements(self):
+        self.elements.clear()
+        self.info_texts.clear()
+        y = 20
+
         self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 40), 'Pause/Resume', self.toggle_pause)
-        y += 60
-        self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 40), 'Switch Mode', self.switch_mode)
-        y += 60
-        self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 1, 10, sim.interval_min, 'Min Interval', self.set_min_interval)
         y += 50
-        self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 1, 20, sim.interval_max, 'Max Interval', self.set_max_interval)
-        y += 50
-        self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 5, 20, sim.speed_min, 'Min Speed (m/s)', self.set_min_speed)
-        y += 50
-        self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 20, 40, sim.speed_max, 'Max Speed (m/s)', self.set_max_speed)
-        y += 50
-        self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 10, 60, sim.green_time, 'Green Time', self.set_green_time)
-        y += 50
-        self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 1, 5, sim.yellow_time, 'Yellow Time', self.set_yellow_time)
-        y += 50
-        self.add_slider((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 20), 10, 60, sim.red_time, 'Red Time (Static)', self.set_red_time)
-        y += 50
-        # Phase management
-        self.phase_y_start = y
-        self.update_phase_items()
-        # Add phase button
-        y += len(sim.controller.phases) * 50 + 20
-        self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 40), 'Add Phase', self.add_phase)
 
-    def update_phase_items(self):
-        self.phase_items = []
-        y = self.phase_y_start
+        self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, y), "Ручное управление (горизонт.):")
+        y += 25
+        self.add_dropdown((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, y, 260, 30),
+                          ["Красный", "Желтый", "Зеленый"], 0, "Цвет", self.set_traffic_color)
+        y += 40
+
+        # Информация о симуляции
+        info_y = y
+        self.info_texts.append(self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, info_y), f"Текущая фаза: {self.sim.current_phase}"))
+        info_y += 25
+        self.info_texts.append(self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, info_y), f"Время: {self.sim.phase_time:.1f}"))
+        info_y += 25
+        self.info_texts.append(self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, info_y), f"Людей: {len(self.sim.pedestrians)}"))
+        y = info_y + 40
+
+        # --- Редактор Фаз ---
+        self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, y), "Редактор Фаз:")
+        y += 25
+
+        colors_eng = ["green", "yellow", "red"]
+
         for i, phase in enumerate(self.sim.controller.phases):
-            rect = (SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 40)
-            item = PhaseItem(rect, phase, i, self.on_drop_phase)
-            self.phase_items.append(item)
-            y += 50
+            phase_y = y + i * 50
 
-    def on_drop_phase(self, dropped_item):
-        # Reorder phases based on y positions
-        self.phase_items.sort(key=lambda item: item.rect.y)
-        new_order = [item.index for item in self.phase_items]
-        self.sim.controller.reorder_phases(new_order)
-        self.update_phase_items()
+            if i == self.sim.controller.current_phase:
+                highlight_rect = pygame.Rect(SCREEN_WIDTH - UI_PANEL_WIDTH + 10, phase_y - 5, UI_PANEL_WIDTH - 20, 48)
+                self.elements.append({'type': 'rect', 'rect': highlight_rect, 'color': (90, 90, 70)})
 
-    def add_phase(self):
-        # Simple addition, perhaps with default
-        added = self.sim.controller.add_phase(10, 'red', 'red')  # All red example
-        if added:
-            self.update_phase_items()
+            self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, phase_y), f"Длительность: {phase['duration']}s")
+
+            self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 150, phase_y - 2, 25, 20), "+5", lambda index=i: self.change_phase_duration(index, 5))
+            self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 180, phase_y - 2, 25, 20), "-5", lambda index=i: self.change_phase_duration(index, -5))
+
+            h_color_idx = colors_eng.index(phase['horiz'])
+            self.add_dropdown((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, phase_y + 18, 85, 25), colors_eng, h_color_idx, "Horiz", lambda color, index=i: self.update_phase_color(index, 'horiz', color))
+
+            v_color_idx = colors_eng.index(phase['vert'])
+            self.add_dropdown((SCREEN_WIDTH - UI_PANEL_WIDTH + 110, phase_y + 18, 85, 25), colors_eng, v_color_idx, "Vert", lambda color, index=i: self.update_phase_color(index, 'vert', color))
+
+            self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 210, phase_y - 2, 30, 22), "↑", lambda index=i: self.move_phase(index, -1))
+            self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 245, phase_y - 2, 30, 22), "↓", lambda index=i: self.move_phase(index, 1))
+            self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 210, phase_y + 21, 65, 22), "X", lambda index=i: self.delete_phase(index))
+
+        y += len(self.sim.controller.phases) * 50 + 10
+        self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 30), "Добавить фазу", self.add_new_phase)
 
     def add_button(self, rect, text, callback):
-        self.elements.append(Button(rect, text, callback))
+        button = Button(rect, text, callback)
+        self.elements.append(button)
+        return button
 
-    def add_slider(self, rect, min_val, max_val, cur_val, label, callback):
-        self.elements.append(Slider(rect, min_val, max_val, cur_val, label, callback))
+    def add_dropdown(self, rect, options, selected_index, label, callback):
+        dropdown = Dropdown(rect, options, selected_index, label, callback)
+        self.elements.append(dropdown)
+        return dropdown
 
-    def handle_event(self, event):
-        for el in self.elements:
-            el.handle_event(event)
-        for item in self.phase_items:
-            item.handle_event(event)
+    def add_text(self, pos, text):
+        text_element = {'type': 'text', 'pos': pos, 'text': text}
+        self.elements.append(text_element)
+        return text_element
 
-    def draw(self, screen):
-        pygame.draw.rect(screen, UI_BG, (SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, SCREEN_HEIGHT))
-        title = self.font.render('Control Panel', True, UI_TEXT)
-        screen.blit(title, (SCREEN_WIDTH - UI_PANEL_WIDTH + 50, 10))
-        for el in self.elements:
-            el.draw(screen, self.font)
-        for item in self.phase_items:
-            item.draw(screen, self.font)
-        mode_text = self.font.render(f'Mode: {self.sim.controller.mode.capitalize()}', True, UI_TEXT)
-        screen.blit(mode_text, (SCREEN_WIDTH - UI_PANEL_WIDTH + 50, 800))
-        if self.sim.completed_wait_times:
-            avg_wait = sum(self.sim.completed_wait_times) / len(self.sim.completed_wait_times)
-            wait_text = self.font.render(f'Avg Wait: {avg_wait:.2f}s | Cars: {len(self.sim.cars)}', True, UI_TEXT)
-            screen.blit(wait_text, (SCREEN_WIDTH - UI_PANEL_WIDTH + 50, 830))
+    def draw(self, screen, font):
+        pygame.draw.rect(screen, (50, 50, 50), self.panel_rect)
+        pygame.draw.rect(screen, (255, 255, 255), self.panel_rect, 2)
+
+        for element in self.elements:
+            if isinstance(element, dict) and element['type'] == 'rect':
+                pygame.draw.rect(screen, element['color'], element['rect'], border_radius=4)
+
+        for element in self.elements:
+            if isinstance(element, Button):
+                element.draw(screen, self.font)
+            elif isinstance(element, Dropdown):
+                element.draw(screen, self.font)
+            elif isinstance(element, dict) and element['type'] == 'text':
+                text_surface = self.font.render(element['text'], True, (255, 255, 255))
+                screen.blit(text_surface, element['pos'])
+
+    def handle_events(self, event):
+        if event.type == pygame.MOUSEMOTION:
+            over_interactive = False
+            for element in self.elements:
+                if isinstance(element, Button):
+                    element.check_hover(event.pos)
+                    if element.rect.collidepoint(event.pos):
+                        over_interactive = True
+                elif isinstance(element, Dropdown) and element.rect.collidepoint(event.pos):
+                    over_interactive = True
+            try:
+                cursor = pygame.SYSTEM_CURSOR_HAND if over_interactive else pygame.SYSTEM_CURSOR_ARROW
+                pygame.mouse.set_cursor(cursor)
+            except pygame.error:
+                pass
+
+        for element in self.elements:
+            if isinstance(element, (Button, Dropdown)):
+                if element.handle_event(event):
+                    return True
+        return False
 
     def toggle_pause(self):
-        self.sim.paused = not self.sim.paused
+        self.sim.toggle_pause()
 
-    def switch_mode(self):
-        self.sim.controller.mode = 'dynamic' if self.sim.controller.mode == 'static' else 'static'
+    def set_traffic_color(self, color):
+        color_map = {"Красный": "red", "Желтый": "yellow", "Зеленый": "green"}
+        self.sim.set_traffic_color(color_map[color])
 
-    def set_min_interval(self, val):
-        self.sim.interval_min = val
-        if val > self.sim.interval_max:
-            self.sim.interval_max = val
+    def update(self):
+        self.info_texts[0]['text'] = f"Текущая фаза: {self.sim.current_phase}"
+        self.info_texts[1]['text'] = f"Время: {self.sim.phase_time:.1f} / {self.sim.controller.phases[self.sim.current_phase]['duration']}"
+        self.info_texts[2]['text'] = f"Людей: {len(self.sim.pedestrians)}"
 
-    def set_max_interval(self, val):
-        self.sim.interval_max = val
-        if val < self.sim.interval_min:
-            self.sim.interval_min = val
+        if self.sim.controller.current_phase != self.last_known_phase:
+            self.last_known_phase = self.sim.controller.current_phase
+            self.rebuild_ui_elements()
 
-    def set_min_speed(self, val):
-        self.sim.speed_min = val
-        if val > self.sim.speed_max:
-            self.sim.speed_max = val
+    def change_phase_duration(self, index, delta):
+        self.sim.controller.change_phase_duration(index, delta)
+        self.rebuild_ui_elements()
 
-    def set_max_speed(self, val):
-        self.sim.speed_max = val
-        if val < self.sim.speed_min:
-            self.sim.speed_min = val
+    def update_phase_color(self, index, direction, color):
+        self.sim.controller.update_phase_color(index, direction, color)
+        self.rebuild_ui_elements()
 
-    def set_green_time(self, val):
-        self.sim.green_time = val
+    def move_phase(self, index, move_by):
+        self.sim.controller.move_phase(index, move_by)
+        self.rebuild_ui_elements()
 
-    def set_yellow_time(self, val):
-        self.sim.yellow_time = val
+    def delete_phase(self, index):
+        self.sim.controller.remove_phase(index)
+        self.rebuild_ui_elements()
 
-    def set_red_time(self, val):
-        self.sim.red_time = val
+    def add_new_phase(self):
+        self.sim.controller.add_phase()
+        self.rebuild_ui_elements()

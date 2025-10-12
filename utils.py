@@ -18,26 +18,38 @@ class Crosswalk:
 
 def draw_roads(screen, center_x, center_y, num_lanes):
     road_width = num_lanes * LANE_WIDTH
-    total_road_width = road_width + 2 * SIDEWALK_WIDTH
-    # Horizontal road with sidewalks
-    pygame.draw.rect(screen, LIGHT_GRAY, (center_x - ROAD_SIZE, center_y - total_road_width / 2, ROAD_SIZE * 2, SIDEWALK_WIDTH))  # Bottom sidewalk
-    pygame.draw.rect(screen, GRAY, (center_x - ROAD_SIZE, center_y - road_width / 2, ROAD_SIZE * 2, road_width))  # Road
-    pygame.draw.rect(screen, LIGHT_GRAY, (center_x - ROAD_SIZE, center_y + road_width / 2, ROAD_SIZE * 2, SIDEWALK_WIDTH))  # Top sidewalk
-    # Vertical road with sidewalks
-    pygame.draw.rect(screen, LIGHT_GRAY, (center_x - total_road_width / 2, center_y - ROAD_SIZE, SIDEWALK_WIDTH, ROAD_SIZE * 2))  # Left sidewalk
-    pygame.draw.rect(screen, GRAY, (center_x - road_width / 2, center_y - ROAD_SIZE, road_width, ROAD_SIZE * 2))  # Road
-    pygame.draw.rect(screen, LIGHT_GRAY, (center_x + road_width / 2, center_y - ROAD_SIZE, SIDEWALK_WIDTH, ROAD_SIZE * 2))  # Right sidewalk
 
-    # Lane lines
+    # Фон симуляции (трава)
+    screen.fill((34, 139, 34), (0, 0, SIM_WIDTH, SIM_HEIGHT))
+
+    # Тротуары в углах
+    corner_sidewalks = [
+        pygame.Rect(0, 0, center_x - road_width / 2, center_y - road_width / 2),
+        pygame.Rect(center_x + road_width / 2, 0, SIM_WIDTH, center_y - road_width / 2),
+        pygame.Rect(0, center_y + road_width / 2, center_x - road_width / 2, SIM_HEIGHT),
+        pygame.Rect(center_x + road_width / 2, center_y + road_width / 2, SIM_WIDTH, SIM_HEIGHT)
+    ]
+    for rect in corner_sidewalks:
+        pygame.draw.rect(screen, LIGHT_GRAY, rect)
+
+    # Горизонтальная дорога
+    pygame.draw.rect(screen, GRAY, (0, center_y - road_width / 2, SIM_WIDTH, road_width))
+    # Вертикальная дорога
+    pygame.draw.rect(screen, GRAY, (center_x - road_width / 2, 0, road_width, SIM_HEIGHT))
+
+    # Разметка полос
     for i in range(1, num_lanes):
-        # Horizontal
         y = center_y - road_width / 2 + i * LANE_WIDTH
-        pygame.draw.line(screen, WHITE, (center_x - ROAD_SIZE, y), (center_x + ROAD_SIZE, y), 2)
-        # Vertical
-        x = center_x - road_width / 2 + i * LANE_WIDTH
-        pygame.draw.line(screen, WHITE, (x, center_y - ROAD_SIZE), (x, center_y + ROAD_SIZE), 2)
+        for x_start in range(0, SIM_WIDTH, 40):
+            if not (center_x - road_width / 2 - 20 < x_start < center_x + road_width / 2):
+                pygame.draw.line(screen, WHITE, (x_start, y), (x_start + 20, y), 2)
 
-    # Crosswalks
+        x = center_x - road_width / 2 + i * LANE_WIDTH
+        for y_start in range(0, SIM_HEIGHT, 40):
+            if not (center_y - road_width / 2 - 20 < y_start < center_y + road_width / 2):
+                pygame.draw.line(screen, WHITE, (x, y_start), (x, y_start + 20), 2)
+
+    # Пешеходные переходы
     horizontal_crosswalk = Crosswalk('horizontal')
     vertical_crosswalk = Crosswalk('vertical')
     horizontal_crosswalk.draw(screen, center_x, center_y, road_width)

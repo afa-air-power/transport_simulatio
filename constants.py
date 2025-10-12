@@ -48,6 +48,7 @@ UI_HOVER = (150, 150, 150)
 UI_ACTIVE = (100, 100, 100)
 UI_TEXT = (255, 255, 255)
 UI_BORDER = (30, 30, 30)
+FPS = 60
 
 # Directions and turns for vehicles
 DIR_INS = ['from_west', 'from_east', 'from_north', 'from_south']

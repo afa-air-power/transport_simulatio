@@ -31,11 +31,18 @@ class TrafficLight:
         self.position = position
         self.orientation = orientation
         self.current_color = 'red'
-        self.lenses = [
-            LightLens(RED, (0, -20)),     # Top: red
-            LightLens(YELLOW, (0, 0)),    # Middle: yellow
-            LightLens(GREEN, (0, 20))     # Bottom: green
-        ]
+        if orientation == 'vertical':
+            self.lenses = [
+                LightLens(RED, (0, -20)),     # Top: red
+                LightLens(YELLOW, (0, 0)),    # Middle: yellow
+                LightLens(GREEN, (0, 20))     # Bottom: green
+            ]
+        else:  # horizontal
+            self.lenses = [
+                LightLens(RED, (-20, 0)),    # Left: red
+                LightLens(YELLOW, (0, 0)),   # Middle: yellow
+                LightLens(GREEN, (20, 0))    # Right: green
+            ]
 
     def set_color(self, color):
         if self.current_color != color:
@@ -46,7 +53,10 @@ class TrafficLight:
     def draw(self, screen, center_x, center_y):
         base_pos = (center_x + self.position[0], center_y + self.position[1])
         # Draw housing
-        housing_rect = pygame.Rect(base_pos[0] - 10, base_pos[1] - 30, 20, 60)
+        if self.orientation == 'vertical':
+            housing_rect = pygame.Rect(base_pos[0] - 10, base_pos[1] - 30, 20, 60)
+        else:
+            housing_rect = pygame.Rect(base_pos[0] - 30, base_pos[1] - 10, 60, 20)
         pygame.draw.rect(screen, BLACK, housing_rect, border_radius=5)
         current_time = time.time()
         for lens in self.lenses:
@@ -65,11 +75,15 @@ class TrafficController:
         self.current_phase = 0
         self.timer = 0
         self.mode = 'static'  # or 'dynamic', but for now static with phases
+
+        road_half = (NUM_LANES * LANE_WIDTH) / 2
+        light_dist = SIM_WIDTH * 0.15 # 15% от ширины экрана симуляции
+
         self.lights = {
-            'h_left': TrafficLight((-60, -60), 'horizontal'),
-            'h_right': TrafficLight((60, 60), 'horizontal'),
-            'v_top': TrafficLight((-60, 60), 'vertical'),
-            'v_bottom': TrafficLight((60, -60), 'vertical')
+            'h_left': TrafficLight((-light_dist, -road_half - 10), 'horizontal'),
+            'h_right': TrafficLight((light_dist, road_half + 10), 'horizontal'),
+            'v_top': TrafficLight((road_half + 10, -light_dist), 'vertical'),
+            'v_bottom': TrafficLight((-road_half - 10, light_dist), 'vertical')
         }
         self.update_lights()
 
@@ -103,11 +117,28 @@ class TrafficController:
     def reorder_phases(self, new_order):
         self.phases = [self.phases[i] for i in new_order]
 
-    def add_phase(self, duration, horiz, vert):
+    def add_phase(self, duration=10, horiz='red', vert='red'):
         if horiz == 'green' and vert == 'green':
             return False  # Invalid
         self.phases.append({'duration': duration, 'horiz': horiz, 'vert': vert})
         return True
 
     def remove_phase(self, index):
-        del self.phases[index]
+        if len(self.phases) > 1 and 0 <= index < len(self.phases):
+            del self.phases[index]
+            if self.current_phase >= len(self.phases):
+                self.current_phase = 0
+                self.timer = 0
+
+    def change_phase_duration(self, index, delta):
+        new_duration = self.phases[index]['duration'] + delta
+        self.phases[index]['duration'] = max(1, new_duration)
+
+    def update_phase_color(self, index, direction, color):
+        self.phases[index][direction] = color
+
+    def move_phase(self, index, move_by):
+        new_index = index + move_by
+        if not (0 <= index < len(self.phases) and 0 <= new_index < len(self.phases)):
+            return
+        self.phases.insert(new_index, self.phases.pop(index))

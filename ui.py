@@ -118,37 +118,50 @@ class UIManager:
         self.font = pygame.font.Font(None, 20)
         self.input_active = False
         self.input_text = ""
-        self.panel_rect = pygame.Rect(SCREEN_WIDTH - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, SCREEN_HEIGHT)
+        self.panel_rect = pygame.Rect(0, 0, 0, 0)  # Будет обновлен в rebuild_ui_elements
         self.last_known_phase = -1
         self.info_texts = []
         self.input_rect = pygame.Rect(0, 0, 0, 0) # Инициализация
         self.rebuild_ui_elements()
 
     def rebuild_ui_elements(self):
+        from constants import screen_config
+        # Обновляем размер панели при изменении окна
+        self.panel_rect = pygame.Rect(screen_config.width - UI_PANEL_WIDTH, 0, UI_PANEL_WIDTH, screen_config.height)
+
         self.elements.clear()
         self.info_texts.clear()
         y = 20
 
-        self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 40), 'Pause/Resume', self.toggle_pause)
+        self.add_button((screen_config.width - UI_PANEL_WIDTH + 50, y, 200, 40), 'Pause/Resume', self.toggle_pause)
         y += 50
 
-        self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, y), "Ручное управление (горизонт.):")
+        # Кнопка обновления окна
+        self.add_button((screen_config.width - UI_PANEL_WIDTH + 20, y, 260, 30), "Обновить окно", self.refresh_window)
+        y += 40
+
+        # Переключатель режима светофора
+        mode_text = "Режим: " + ("Динамический" if self.sim.controller.mode == 'dynamic' else "Статический")
+        self.add_button((screen_config.width - UI_PANEL_WIDTH + 20, y, 260, 30), mode_text, self.toggle_mode)
+        y += 40
+
+        self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), "Ручное управление (горизонт.):")
         y += 25
-        self.add_dropdown((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, y, 260, 30),
+        self.add_dropdown((screen_config.width - UI_PANEL_WIDTH + 20, y, 260, 30),
                           ["Красный", "Желтый", "Зеленый"], 0, "Цвет", self.set_traffic_color)
         y += 40
 
         # Информация о симуляции
         info_y = y
-        self.info_texts.append(self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, info_y), f"Текущая фаза: {self.sim.current_phase}"))
+        self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Текущая фаза: {self.sim.current_phase}"))
         info_y += 25
-        self.info_texts.append(self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, info_y), f"Время: {self.sim.phase_time:.1f}"))
+        self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Время: {self.sim.phase_time:.1f}"))
         info_y += 25
-        self.info_texts.append(self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, info_y), f"Людей: {len(self.sim.pedestrians)}"))
+        self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Людей: {len(self.sim.pedestrians)}"))
         y = info_y + 40
 
         # --- Редактор Фаз ---
-        self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, y), "Редактор Фаз:")
+        self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), "Редактор Фаз:")
         y += 25
 
         colors_eng = ["green", "yellow", "red"]
@@ -157,26 +170,26 @@ class UIManager:
             phase_y = y + i * 50
 
             if i == self.sim.controller.current_phase:
-                highlight_rect = pygame.Rect(SCREEN_WIDTH - UI_PANEL_WIDTH + 10, phase_y - 5, UI_PANEL_WIDTH - 20, 48)
+                highlight_rect = pygame.Rect(screen_config.width - UI_PANEL_WIDTH + 10, phase_y - 5, UI_PANEL_WIDTH - 20, 48)
                 self.elements.append({'type': 'rect', 'rect': highlight_rect, 'color': (90, 90, 70)})
 
-            self.add_text((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, phase_y), f"Длительность: {phase['duration']}s")
+            self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, phase_y), f"Длительность: {phase['duration']}s")
 
-            self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 150, phase_y - 2, 25, 20), "+5", lambda index=i: self.change_phase_duration(index, 5))
-            self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 180, phase_y - 2, 25, 20), "-5", lambda index=i: self.change_phase_duration(index, -5))
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 150, phase_y - 2, 25, 20), "+5", lambda index=i: self.change_phase_duration(index, 5))
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 180, phase_y - 2, 25, 20), "-5", lambda index=i: self.change_phase_duration(index, -5))
 
             h_color_idx = colors_eng.index(phase['horiz'])
-            self.add_dropdown((SCREEN_WIDTH - UI_PANEL_WIDTH + 20, phase_y + 18, 85, 25), colors_eng, h_color_idx, "Horiz", lambda color, index=i: self.update_phase_color(index, 'horiz', color))
+            self.add_dropdown((screen_config.width - UI_PANEL_WIDTH + 20, phase_y + 18, 85, 25), colors_eng, h_color_idx, "Horiz", lambda color, index=i: self.update_phase_color(index, 'horiz', color))
 
             v_color_idx = colors_eng.index(phase['vert'])
-            self.add_dropdown((SCREEN_WIDTH - UI_PANEL_WIDTH + 110, phase_y + 18, 85, 25), colors_eng, v_color_idx, "Vert", lambda color, index=i: self.update_phase_color(index, 'vert', color))
+            self.add_dropdown((screen_config.width - UI_PANEL_WIDTH + 110, phase_y + 18, 85, 25), colors_eng, v_color_idx, "Vert", lambda color, index=i: self.update_phase_color(index, 'vert', color))
 
-            self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 210, phase_y - 2, 30, 22), "↑", lambda index=i: self.move_phase(index, -1))
-            self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 245, phase_y - 2, 30, 22), "↓", lambda index=i: self.move_phase(index, 1))
-            self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 210, phase_y + 21, 65, 22), "X", lambda index=i: self.delete_phase(index))
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 210, phase_y - 2, 30, 22), "↑", lambda index=i: self.move_phase(index, -1))
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 245, phase_y - 2, 30, 22), "↓", lambda index=i: self.move_phase(index, 1))
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 210, phase_y + 21, 65, 22), "X", lambda index=i: self.delete_phase(index))
 
         y += len(self.sim.controller.phases) * 50 + 10
-        self.add_button((SCREEN_WIDTH - UI_PANEL_WIDTH + 50, y, 200, 30), "Добавить фазу", self.add_new_phase)
+        self.add_button((screen_config.width - UI_PANEL_WIDTH + 50, y, 200, 30), "Добавить фазу", self.add_new_phase)
 
     def add_button(self, rect, text, callback):
         button = Button(rect, text, callback)
@@ -267,3 +280,13 @@ class UIManager:
     def add_new_phase(self):
         self.sim.controller.add_phase()
         self.rebuild_ui_elements()
+
+    def toggle_mode(self):
+        new_mode = 'static' if self.sim.controller.mode == 'dynamic' else 'dynamic'
+        self.sim.controller.set_mode(new_mode)
+        self.rebuild_ui_elements()
+
+    def refresh_window(self):
+        """Обновляет все элементы окна и перестраивает UI"""
+        self.sim.update_screen_size()  # Обновить позиции светофоров
+        self.rebuild_ui_elements()  # Перестроить UI

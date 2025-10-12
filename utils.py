@@ -17,35 +17,43 @@ class Crosswalk:
                 pygame.draw.line(screen, WHITE, (center_x - offset, center_y - 30), (center_x - offset, center_y + 30), 3)
 
 def draw_roads(screen, center_x, center_y, num_lanes):
+    from constants import screen_config
     road_width = num_lanes * LANE_WIDTH
 
     # Фон симуляции (трава)
-    screen.fill((34, 139, 34), (0, 0, SIM_WIDTH, SIM_HEIGHT))
+    screen.fill((34, 139, 34), (0, 0, screen_config.sim_width, screen_config.sim_height))
 
-    # Тротуары в углах
+    # Тротуары в углах (более темный серый цвет для контраста)
+    sidewalk_color = (160, 160, 160)
     corner_sidewalks = [
         pygame.Rect(0, 0, center_x - road_width / 2, center_y - road_width / 2),
-        pygame.Rect(center_x + road_width / 2, 0, SIM_WIDTH, center_y - road_width / 2),
-        pygame.Rect(0, center_y + road_width / 2, center_x - road_width / 2, SIM_HEIGHT),
-        pygame.Rect(center_x + road_width / 2, center_y + road_width / 2, SIM_WIDTH, SIM_HEIGHT)
+        pygame.Rect(center_x + road_width / 2, 0, screen_config.sim_width, center_y - road_width / 2),
+        pygame.Rect(0, center_y + road_width / 2, center_x - road_width / 2, screen_config.sim_height),
+        pygame.Rect(center_x + road_width / 2, center_y + road_width / 2, screen_config.sim_width, screen_config.sim_height)
     ]
+
     for rect in corner_sidewalks:
-        pygame.draw.rect(screen, LIGHT_GRAY, rect)
+        pygame.draw.rect(screen, sidewalk_color, rect)
+        # Добавляем текстуру тротуара (точечный узор)
+        for x in range(int(rect.x), int(rect.x + rect.width), 20):
+            for y in range(int(rect.y), int(rect.y + rect.height), 20):
+                if (x + y) % 40 == 0:
+                    pygame.draw.circle(screen, (140, 140, 140), (x, y), 2)
 
     # Горизонтальная дорога
-    pygame.draw.rect(screen, GRAY, (0, center_y - road_width / 2, SIM_WIDTH, road_width))
+    pygame.draw.rect(screen, GRAY, (0, center_y - road_width / 2, screen_config.sim_width, road_width))
     # Вертикальная дорога
-    pygame.draw.rect(screen, GRAY, (center_x - road_width / 2, 0, road_width, SIM_HEIGHT))
+    pygame.draw.rect(screen, GRAY, (center_x - road_width / 2, 0, road_width, screen_config.sim_height))
 
     # Разметка полос
     for i in range(1, num_lanes):
         y = center_y - road_width / 2 + i * LANE_WIDTH
-        for x_start in range(0, SIM_WIDTH, 40):
+        for x_start in range(0, screen_config.sim_width, 40):
             if not (center_x - road_width / 2 - 20 < x_start < center_x + road_width / 2):
                 pygame.draw.line(screen, WHITE, (x_start, y), (x_start + 20, y), 2)
 
         x = center_x - road_width / 2 + i * LANE_WIDTH
-        for y_start in range(0, SIM_HEIGHT, 40):
+        for y_start in range(0, screen_config.sim_height, 40):
             if not (center_y - road_width / 2 - 20 < y_start < center_y + road_width / 2):
                 pygame.draw.line(screen, WHITE, (x, y_start), (x, y_start + 20), 2)
 

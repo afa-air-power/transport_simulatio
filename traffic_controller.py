@@ -74,10 +74,24 @@ class TrafficController:
         ]
         self.current_phase = 0
         self.timer = 0
-        self.mode = 'static'  # or 'dynamic', but for now static with phases
+        self.mode = 'static'  # 'static' or 'dynamic'
 
+        # Параметры динамического режима
+        self.min_phase_time = 5.0  # Минимальное время фазы
+        self.max_phase_time = 60.0  # Максимальное время фазы
+        self.switch_threshold = 10.0  # Порог для переключения
+        self.waiting_cars_h = 0  # Количество ожидающих машин по горизонтали
+        self.waiting_cars_v = 0  # Количество ожидающих машин по вертикали
+
+        self.lights = {}
+        self.update_light_positions()
+        self.update_lights()
+
+    def update_light_positions(self):
+        """Обновляет позиции светофоров при изменении размера экрана"""
+        from constants import screen_config
         road_half = (NUM_LANES * LANE_WIDTH) / 2
-        light_dist = SIM_WIDTH * 0.15 # 15% от ширины экрана симуляции
+        light_dist = screen_config.sim_width * 0.15 # 15% от ширины экрана симуляции
 
         self.lights = {
             'h_left': TrafficLight((-light_dist, -road_half - 10), 'horizontal'),
@@ -85,7 +99,6 @@ class TrafficController:
             'v_top': TrafficLight((road_half + 10, -light_dist), 'vertical'),
             'v_bottom': TrafficLight((-road_half - 10, light_dist), 'vertical')
         }
-        self.update_lights()
 
     def update_lights(self):
         phase = self.phases[self.current_phase]
@@ -109,10 +122,47 @@ class TrafficController:
 
     def update(self, dt, waiting_h, waiting_v):
         self.timer += dt
-        if self.timer > self.phases[self.current_phase]['duration']:
-            self.timer = 0
-            self.current_phase = (self.current_phase + 1) % len(self.phases)
+        self.waiting_cars_h = waiting_h
+        self.waiting_cars_v = waiting_v
+
+        if self.mode == 'dynamic':
+            should_switch = self.evaluate_dynamic_switch(dt)
+            if should_switch and self.timer >= self.min_phase_time:
+                self.timer = 0
+                self.current_phase = (self.current_phase + 1) % len(self.phases)
+        else:
+            # Статический режим
+            if self.timer > self.phases[self.current_phase]['duration']:
+                self.timer = 0
+                self.current_phase = (self.current_phase + 1) % len(self.phases)
+
         self.update_lights()
+
+    def evaluate_dynamic_switch(self, dt):
+        """Оценивает необходимость переключения фазы в динамическом режиме"""
+        current_phase_info = self.phases[self.current_phase]
+
+        # Вычисляем суммарное время ожидания (квадраты для штрафа за долгое ожидание)
+        h_waiting_penalty = self.waiting_cars_h ** 2
+        v_waiting_penalty = self.waiting_cars_v ** 2
+
+        # Если текущая фаза зеленая для горизонтального направления
+        if current_phase_info['horiz'] == 'green':
+            # Переключаемся, если много вертикальных машин ждет
+            return v_waiting_penalty > h_waiting_penalty + self.switch_threshold
+
+        # Если текущая фаза зеленая для вертикального направления  
+        elif current_phase_info['vert'] == 'green':
+            # Переключаемся, если много горизонтальных машин ждет
+            return h_waiting_penalty > v_waiting_penalty + self.switch_threshold
+
+        # Для промежуточных фаз (желтый, красный) используем минимальное время
+        return self.timer >= 3.0
+
+    def set_mode(self, mode):
+        """Устанавливает режим работы светофора"""
+        if mode in ['static', 'dynamic']:
+            self.mode = mode
 
     def reorder_phases(self, new_order):
         self.phases = [self.phases[i] for i in new_order]

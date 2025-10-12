@@ -8,15 +8,12 @@ from utils import draw_roads, draw_entities
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+    screen = pygame.display.set_mode((screen_config.width, screen_config.height))
     pygame.display.set_caption("Traffic Simulation")
     clock = pygame.time.Clock()
 
     sim = TrafficSimulation()
     ui = UIManager(sim)
-
-    center_x = SIM_WIDTH // 2
-    center_y = SIM_HEIGHT // 2
 
     running = True
     while running:
@@ -26,7 +23,8 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            ui.handle_events(event)
+            else:
+                ui.handle_events(event)
 
         # Обновление
         sim.update(dt)
@@ -34,7 +32,8 @@ def main():
 
         # Отрисовка
         screen.fill(BLACK)
-        screen.fill(BLACK)
+        center_x = screen_config.sim_width // 2
+        center_y = screen_config.sim_height // 2
         draw_roads(screen, center_x, center_y, NUM_LANES)
         draw_entities(screen, sim, center_x, center_y)
         ui.draw(screen, ui.font)

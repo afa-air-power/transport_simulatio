@@ -1,18 +1,40 @@
 # constants.py
 import pygame
 
-SCREEN_WIDTH = 1200
-SCREEN_HEIGHT = 900
+# Базовые размеры (по умолчанию)
+DEFAULT_SCREEN_WIDTH = 1200
+DEFAULT_SCREEN_HEIGHT = 900
 UI_PANEL_WIDTH = 300
-SIM_WIDTH = SCREEN_WIDTH - UI_PANEL_WIDTH
-SIM_HEIGHT = SCREEN_HEIGHT
+
+class ScreenConfig:
+    """Динамическая конфигурация экрана"""
+    def __init__(self):
+        self.width = DEFAULT_SCREEN_WIDTH
+        self.height = DEFAULT_SCREEN_HEIGHT
+        self.sim_width = self.width - UI_PANEL_WIDTH
+        self.sim_height = self.height
+
+    def update(self, width, height):
+        self.width = max(800, width)
+        self.height = max(600, height)
+        self.sim_width = self.width - UI_PANEL_WIDTH
+        self.sim_height = self.height
+
+# Глобальный экземпляр конфигурации
+screen_config = ScreenConfig()
+
+# Константы совместимости (для старого кода)
+SCREEN_WIDTH = screen_config.width
+SCREEN_HEIGHT = screen_config.height
+SIM_WIDTH = screen_config.sim_width
+SIM_HEIGHT = screen_config.sim_height
 ROAD_SIZE = 400  # meters from center to edge
 LANE_WIDTH = 15
 NUM_LANES = 3
 PED_SIZE_MIN = 1.5
 PED_SIZE_MAX = 2.5
-PED_SPEED_MIN = 1.0  # m/s
-PED_SPEED_MAX = 2.0
+PED_SPEED_MIN = 4.0  # m/s (увеличено в 4 раза)
+PED_SPEED_MAX = 6.0  # m/s (увеличено в 3 раза)
 PED_GROUP_PROB = 0.3  # Probability of generating a group
 PED_GROUP_SIZE = (2, 5)  # Min-max group size
 PED_REPULSION = 5.0  # Repulsion force strength

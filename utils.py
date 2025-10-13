@@ -34,11 +34,6 @@ def draw_roads(screen, center_x, center_y, num_lanes):
 
     for rect in corner_sidewalks:
         pygame.draw.rect(screen, sidewalk_color, rect)
-        # Добавляем текстуру тротуара (точечный узор)
-        for x in range(int(rect.x), int(rect.x + rect.width), 20):
-            for y in range(int(rect.y), int(rect.y + rect.height), 20):
-                if (x + y) % 40 == 0:
-                    pygame.draw.circle(screen, (140, 140, 140), (x, y), 2)
 
     # Горизонтальная дорога
     pygame.draw.rect(screen, GRAY, (0, center_y - road_width / 2, screen_config.sim_width, road_width))

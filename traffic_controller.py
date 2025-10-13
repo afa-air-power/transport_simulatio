@@ -64,28 +64,34 @@ class TrafficLight:
 
 class TrafficController:
     def __init__(self):
+        self.lights = {}
+        self.reset_to_defaults()
+        self.update_light_positions()
+        self.update_lights()
+
+    def reset_to_defaults(self):
+        """Resets all settings and state to their default values."""
         self.phases = [
             {'duration': 30, 'horiz': 'green', 'vert': 'red'},
             {'duration': 3, 'horiz': 'yellow', 'vert': 'red'},
-            {'duration': 2, 'horiz': 'red', 'vert': 'red'},  # All red for peds
+            {'duration': 2, 'horiz': 'red', 'vert': 'red'},
             {'duration': 30, 'vert': 'green', 'horiz': 'red'},
             {'duration': 3, 'vert': 'yellow', 'horiz': 'red'},
-            {'duration': 2, 'vert': 'red', 'horiz': 'red'}  # All red for peds
+            {'duration': 2, 'vert': 'red', 'horiz': 'red'}
         ]
         self.current_phase = 0
         self.timer = 0
-        self.mode = 'static'  # 'static' or 'dynamic'
+        self.mode = 'static'
 
         # Параметры динамического режима
-        self.min_phase_time = 5.0  # Минимальное время фазы
-        self.max_phase_time = 60.0  # Максимальное время фазы
-        self.switch_threshold = 10.0  # Порог для переключения
-        self.waiting_cars_h = 0  # Количество ожидающих машин по горизонтали
-        self.waiting_cars_v = 0  # Количество ожидающих машин по вертикали
+        self.min_phase_time = 5.0
+        self.max_phase_time = 60.0
+        self.switch_threshold = 10.0
+        self.waiting_cars_h = 0
+        self.waiting_cars_v = 0
 
-        self.lights = {}
-        self.update_light_positions()
-        self.update_lights()
+        if self.lights:
+            self.update_lights()
 
     def update_light_positions(self):
         """Обновляет позиции светофоров при изменении размера экрана"""

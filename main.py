@@ -15,6 +15,9 @@ def main():
     sim = TrafficSimulation()
     ui = UIManager(sim)
 
+    # Загружаем конфигурацию при запуске, если она есть
+    ui.import_config()
+
     running = True
     while running:
         dt = clock.tick(FPS) / 1000.0  # Delta time в секундах

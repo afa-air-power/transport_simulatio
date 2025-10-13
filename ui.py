@@ -134,15 +134,13 @@ class UIManager:
         y = 20
         self.add_button((screen_config.width - UI_PANEL_WIDTH + 50, y, 200, 40), 'Pause/Resume', self.toggle_pause)
         y += 50
-        self.add_button((screen_config.width - UI_PANEL_WIDTH + 20, y, 260, 30), "Обновить окно", self.refresh_window)
-        y += 40
+
         mode_text = "Режим: " + ("Динамический" if self.sim.controller.mode == 'dynamic' else "Статический")
         self.add_button((screen_config.width - UI_PANEL_WIDTH + 20, y, 260, 30), mode_text, self.toggle_mode)
         y += 40
 
-        # Manually add import/export buttons here from previous patch if they are missing
-        self.add_button((screen_config.width - UI_PANEL_WIDTH + 20, y, 125, 30), "Импорт JSON", self.import_config)
-        self.add_button((screen_config.width - UI_PANEL_WIDTH + 155, y, 125, 30), "Экспорт JSON", self.export_config)
+        self.add_button((screen_config.width - UI_PANEL_WIDTH + 20, y, 125, 30), "Сохранить", self.export_config)
+        self.add_button((screen_config.width - UI_PANEL_WIDTH + 155, y, 125, 30), "Сбросить", self.reset_settings)
         y += 40
 
         self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), "Ручное управление (горизонт.):")
@@ -333,6 +331,11 @@ class UIManager:
     def add_new_phase(self): self.sim.controller.add_phase(); self.rebuild_ui_elements()
     def toggle_mode(self): self.sim.controller.set_mode('static' if self.sim.controller.mode == 'dynamic' else 'dynamic'); self.rebuild_ui_elements()
     def refresh_window(self): self.sim.update_screen_size(); self.rebuild_ui_elements()
+
+    def reset_settings(self):
+        """Resets traffic controller to default settings."""
+        self.sim.controller.reset_to_defaults()
+        self.rebuild_ui_elements()
 
     def update(self):
         self.info_texts[0]['text'] = f"Текущая фаза: {self.sim.current_phase}"

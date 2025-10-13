@@ -11,7 +11,7 @@ class Car:
     """Представляет одно транспортное средство в симуляции."""
     def __init__(self, pos, heading, speed, color):
         self.pos = list(pos)
-        self.heading = heading
+        self.heading = list(heading)
         self.speed = speed
         self.color = color
         self.length = 10  # Визуальный размер
@@ -169,25 +169,19 @@ class Pedestrian:
         road_half = (NUM_LANES * LANE_WIDTH) / 2
 
         # Определяем, находится ли пешеход на перекрестке
-        on_intersection = (-road_half < self.pos[0] < road_half and 
-                          -road_half < self.pos[1] < road_half)
+        on_intersection = (-road_half < self.pos[0] < road_half and
+                           -road_half < self.pos[1] < road_half)
 
-        # Если пешеход уже на перекрестке, позволяем ему закончить переход
+        # Если пешеход уже на перекрестке, позволяем ему закончить переход, иначе ждем зеленого
         if on_intersection or can_cross:
             dx = self.goal[0] - self.pos[0]
             dy = self.goal[1] - self.pos[1]
+            dist = math.hypot(dx, dy)
 
-            # Движение строго по осям (без диагонали)
-            if abs(dx) > abs(dy):
-                # Движемся горизонтально
-                if abs(dx) > 1:
-                    move_dist = self.speed * dt
-                    self.pos[0] += move_dist if dx > 0 else -move_dist
-            else:
-                # Движемся вертикально
-                if abs(dy) > 1:
-                    move_dist = self.speed * dt
-                    self.pos[1] += move_dist if dy > 0 else -move_dist
+            if dist > 1:  # Пока не достигли цели
+                move_dist = self.speed * dt
+                self.pos[0] += move_dist * (dx / dist)
+                self.pos[1] += move_dist * (dy / dist)
         # Иначе пешеход ждет на тротуаре
 
 class TrafficSimulation:
@@ -254,15 +248,21 @@ class TrafficSimulation:
         self.cars.append(Car(pos, heading, speed / 5, color)) # коэффициент /5 для замедления визуализации
 
     def spawn_pedestrian(self):
-        """Создает нового пешехода на тротуаре."""
+        """Создает нового пешехода на тротуаре с перпендикулярной целью."""
         road_half = (NUM_LANES * LANE_WIDTH) / 2
         sidewalk_dist = road_half + SIDEWALK_WIDTH / 2
 
-        start_pos = random.choice([
-            (-sidewalk_dist, -sidewalk_dist), (sidewalk_dist, -sidewalk_dist),
-            (-sidewalk_dist, sidewalk_dist), (sidewalk_dist, sidewalk_dist)
-        ])
-        goal_pos = (-start_pos[0], -start_pos[1])
+        start_x_sign = random.choice([-1, 1])
+        start_y_sign = random.choice([-1, 1])
+        start_pos = (start_x_sign * sidewalk_dist, start_y_sign * sidewalk_dist)
+
+        # Пешеход переходит либо по горизонтали, либо по вертикали
+        if random.choice([True, False]):
+            # Переход по вертикали (меняется y)
+            goal_pos = (start_pos[0], -start_pos[1])
+        else:
+            # Переход по горизонтали (меняется x)
+            goal_pos = (-start_pos[0], start_pos[1])
 
         speed = random.uniform(PED_SPEED_MIN, PED_SPEED_MAX)
         self.peds.append(Pedestrian(start_pos, goal_pos, speed, (200, 200, 255), 2))

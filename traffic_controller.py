@@ -86,14 +86,15 @@ class TrafficController:
         # Параметры динамического режима
         self.min_phase_time = 5.0
         self.max_phase_time = 60.0
-        self.waiting_cars_h = 0
-        self.waiting_cars_v = 0
+        self.dynamic_logic_factor = 0.99  # Фактор затухания для взвешенного штрафа
+        self.weighted_h_penalty = 0.0
+        self.weighted_v_penalty = 0.0
+        self.traffic_spawn_rates = {d: 2.0 for d in DIR_INS}
+
+
+        # Старые переменные для обратной совместимости и UI
         self.h_penalty = 0.0
         self.v_penalty = 0.0
-        # Интегральные (накопленные) штрафы
-        self.integrated_h_penalty = 0.0
-        self.integrated_v_penalty = 0.0
-
 
         if self.lights:
             self.update_lights()
@@ -133,14 +134,14 @@ class TrafficController:
 
     def update(self, dt, waiting_h, waiting_v, h_penalty, v_penalty):
         self.timer += dt
-        self.waiting_cars_h = waiting_h
-        self.waiting_cars_v = waiting_v
+        # Эти переменные обновляются для отображения в UI
         self.h_penalty = h_penalty
         self.v_penalty = v_penalty
 
-        # Накапливаем "недовольство" (интегрированный штраф) для каждого направления
-        self.integrated_h_penalty += self.h_penalty * dt
-        self.integrated_v_penalty += self.v_penalty * dt
+        # Обновляем взвешенные штрафы с использованием фактора затухания.
+        self.weighted_h_penalty = self.weighted_h_penalty * self.dynamic_logic_factor + self.h_penalty
+        self.weighted_v_penalty = self.weighted_v_penalty * self.dynamic_logic_factor + self.v_penalty
+
 
         should_switch = False
         if self.mode == 'dynamic':
@@ -154,40 +155,42 @@ class TrafficController:
             self.timer = 0
             self.current_phase = (self.current_phase + 1) % len(self.phases)
 
-            # "Списываем" накопленный штраф для направления, получившего зеленый свет
+            # При переключении на зеленый, сбрасываем "давление" этого направления
             new_phase_info = self.phases[self.current_phase]
-            if new_phase_info['horiz'] == 'green' and new_phase_info['vert'] == 'red':
-                self.integrated_h_penalty = 0.0
-            elif new_phase_info['vert'] == 'green' and new_phase_info['horiz'] == 'red':
-                self.integrated_v_penalty = 0.0
+            if new_phase_info['horiz'] == 'green':
+                self.weighted_h_penalty = 0
+            if new_phase_info['vert'] == 'green':
+                self.weighted_v_penalty = 0
+
 
         self.update_lights()
 
     def evaluate_dynamic_switch(self):
         """
         Оценивает необходимость переключения фазы в динамическом режиме.
-        Цель - сбалансировать "интегральный штраф" (накопленное недовольство) ожидающих направлений.
+        Логика основана на сравнении "взвешенных" штрафов для направлений.
         """
         current_phase_info = self.phases[self.current_phase]
 
-        is_h_green = current_phase_info['horiz'] == 'green' and current_phase_info['vert'] == 'red'
-        is_v_green = current_phase_info['vert'] == 'green' and current_phase_info['horiz'] == 'red'
+        is_h_green = current_phase_info['horiz'] == 'green'
+        is_v_green = current_phase_info['vert'] == 'green'
 
-        if is_h_green or is_v_green:
-            # Принудительное соблюдение минимального и максимального времени зеленой фазы
-            if self.timer < self.min_phase_time:
-                return False
-            if self.timer > self.max_phase_time:
-                return True
-
-            # Основная логика: переключаемся, если накопленный штраф другого направления стал больше
-            if is_h_green:
-                return self.integrated_v_penalty > self.integrated_h_penalty
-            if is_v_green:
-                return self.integrated_h_penalty > self.integrated_v_penalty
-        else:
-            # Для желтой и красной фаз используем их фиксированную длительность
+        # Для желтых и чисто красных фаз используем их фиксированную длительность
+        if not (is_h_green or is_v_green):
             return self.timer >= current_phase_info['duration']
+
+        # Соблюдение минимального и максимального времени зеленой фазы
+        if self.timer < self.min_phase_time:
+            return False
+        if self.timer > self.max_phase_time:
+            return True
+
+        # Основная логика: переключаемся, если взвешенный штраф ожидающего направления
+        # становится больше, чем у текущего активного направления.
+        if is_h_green:
+            return self.weighted_v_penalty > self.weighted_h_penalty
+        if is_v_green:
+            return self.weighted_h_penalty > self.weighted_v_penalty
 
         return False
 
@@ -235,7 +238,8 @@ class TrafficController:
             'phases': self.phases,
             'min_phase_time': self.min_phase_time,
             'max_phase_time': self.max_phase_time,
-            'switch_threshold': self.switch_threshold
+            'dynamic_logic_factor': self.dynamic_logic_factor,
+            'traffic_spawn_rates': self.traffic_spawn_rates,
         }
 
     def import_config_dict(self, data: dict):
@@ -266,11 +270,19 @@ class TrafficController:
         mpt = data.get('min_phase_time')
         if isinstance(mpt, (int, float)) and mpt > 0:
             self.min_phase_time = float(mpt)
+
         mxpt = data.get('max_phase_time')
         if isinstance(mxpt, (int, float)) and mxpt >= self.min_phase_time:
             self.max_phase_time = float(mxpt)
-        thr = data.get('switch_threshold')
-        if isinstance(thr, (int, float)) and thr >= 0:
-            self.switch_threshold = float(thr)
+
+        dlf = data.get('dynamic_logic_factor')
+        if isinstance(dlf, (int, float)) and 0 < dlf <= 1:
+            self.dynamic_logic_factor = float(dlf)
+
+        rates = data.get('traffic_spawn_rates')
+        if isinstance(rates, dict):
+            for d in DIR_INS:
+                if d in rates and isinstance(rates[d], (int, float)) and rates[d] > 0:
+                    self.traffic_spawn_rates[d] = float(rates[d])
 
         self.update_lights()

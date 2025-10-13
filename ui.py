@@ -144,16 +144,43 @@ class UIManager:
         y += 40
 
         info_y = y
-        self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Текущая фаза: {self.sim.current_phase}"))
-        info_y += 25
-        self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Время: {self.sim.phase_time:.1f}"))
-        info_y += 25
-        self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Людей: {len(self.sim.pedestrians)}"))
-        info_y += 25
-        self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}"))
-        info_y += 25
-        self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}"))
-        y = info_y + 40
+        if self.sim.controller.mode == 'dynamic':
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Людей: {len(self.sim.pedestrians)}"))
+            info_y += 25
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}"))
+            info_y += 25
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}"))
+            y = info_y + 30
+
+            self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), f"Фактор логики: {self.sim.controller.dynamic_logic_factor:.3f}")
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 180, y - 2, 45, 20), "+", lambda: self.change_dynamic_factor(0.001))
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 230, y - 2, 45, 20), "-", lambda: self.change_dynamic_factor(-0.001))
+            y += 25
+
+        else: # static mode
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Текущая фаза: {self.sim.current_phase}"))
+            info_y += 25
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Время: {self.sim.phase_time:.1f}"))
+            info_y += 25
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Людей: {len(self.sim.pedestrians)}"))
+            info_y += 25
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}"))
+            info_y += 25
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}"))
+            y = info_y + 20
+
+        y += 20
+        self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), "Плотность трафика (интервал, сек):")
+        y += 25
+
+        dir_map = {'from_north': 'С Севера', 'from_south': 'С Юга', 'from_west': 'С Запада', 'from_east': 'С Востока'}
+        for direction, name in dir_map.items():
+            rate = self.sim.controller.traffic_spawn_rates.get(direction, 0)
+            self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), f"{name}: {rate:.1f}")
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 180, y - 2, 45, 20), "+", lambda d=direction: self.change_spawn_rate(d, 0.5))
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 230, y - 2, 45, 20), "-", lambda d=direction: self.change_spawn_rate(d, -0.5))
+            y += 25
+        y += 15
 
         # В динамическом режиме редактор фаз не нужен
         if self.sim.controller.mode == 'static':
@@ -327,6 +354,18 @@ class UIManager:
                     return True
         return False
 
+    def change_dynamic_factor(self, delta):
+        new_factor = self.sim.controller.dynamic_logic_factor + delta
+        self.sim.controller.dynamic_logic_factor = round(max(0.9, min(0.999, new_factor)), 3)
+        self.rebuild_ui_elements()
+
+    def change_spawn_rate(self, direction, delta):
+        current_rate = self.sim.controller.traffic_spawn_rates[direction]
+        # Интервал не может быть 0 или отрицательным. 0.1 - минимальный.
+        new_rate = max(0.1, current_rate + delta)
+        self.sim.controller.traffic_spawn_rates[direction] = round(new_rate, 1)
+        self.rebuild_ui_elements()
+
     def toggle_pause(self): self.sim.toggle_pause()
     def update_phase_color(self, i, d, c): self.sim.controller.update_phase_color(i, d, c); self.rebuild_ui_elements()
     def change_phase_duration(self, i, d): self.sim.controller.change_phase_duration(i, d); self.rebuild_ui_elements()
@@ -342,11 +381,17 @@ class UIManager:
         self.rebuild_ui_elements()
 
     def update(self):
-        self.info_texts[0]['text'] = f"Текущая фаза: {self.sim.current_phase}"
-        self.info_texts[1]['text'] = f"Время: {self.sim.phase_time:.1f} / {self.sim.controller.phases[self.sim.current_phase]['duration']}"
-        self.info_texts[2]['text'] = f"Людей: {len(self.sim.pedestrians)}"
-        self.info_texts[3]['text'] = f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}"
-        self.info_texts[4]['text'] = f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}"
+        if self.sim.controller.mode == 'dynamic':
+            self.info_texts[0]['text'] = f"Людей: {len(self.sim.pedestrians)}"
+            self.info_texts[1]['text'] = f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}"
+            self.info_texts[2]['text'] = f"Штраф (H/V): {self.sim.controller.weighted_h_penalty:.0f} / {self.sim.controller.weighted_v_penalty:.0f}"
+        else:  # static
+            phase_duration = self.sim.controller.phases[self.sim.current_phase]['duration']
+            self.info_texts[0]['text'] = f"Текущая фаза: {self.sim.current_phase}"
+            self.info_texts[1]['text'] = f"Время: {self.sim.phase_time:.1f} / {phase_duration}"
+            self.info_texts[2]['text'] = f"Людей: {len(self.sim.pedestrians)}"
+            self.info_texts[3]['text'] = f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}"
+            self.info_texts[4]['text'] = f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}"
 
         if self.sim.controller.current_phase != self.last_known_phase:
             self.last_known_phase = self.sim.controller.current_phase

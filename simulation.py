@@ -192,8 +192,7 @@ class TrafficSimulation:
         self.pedestrians = self.peds  # Псевдоним для совместимости с UI
         self.paused = False
         # Таймеры для генерации сущностей
-        self.last_car_spawn = 0
-        self.car_spawn_interval = 2.0  # секунды
+        self.last_car_spawns = {d: 0 for d in DIR_INS}
         self.last_ped_spawn = 0
         self.ped_spawn_interval = 3.0 # секунды
 
@@ -216,13 +215,12 @@ class TrafficSimulation:
     def toggle_pause(self):
         self.paused = not self.paused
 
-    def spawn_car(self):
-        """Создает новый автомобиль на одном из въездов."""
+    def spawn_car(self, direction):
+        """Создает новый автомобиль на заданном въезде."""
         from constants import screen_config
         road_half = (NUM_LANES * LANE_WIDTH) / 2
         entry_dist = (screen_config.sim_width / 2) + 50
 
-        direction = random.choice(['from_west', 'from_east', 'from_north', 'from_south'])
         lane_pos = road_half / 2 # упрощенная позиция полосы
 
         if direction == 'from_west':
@@ -286,11 +284,12 @@ class TrafficSimulation:
         self.current_phase = self.controller.current_phase
         self.phase_time = self.controller.timer
 
-        # Генерация машин
-        self.last_car_spawn += dt
-        if self.last_car_spawn > self.car_spawn_interval and len(self.cars) < MAX_CARS:
-            self.spawn_car()
-            self.last_car_spawn = 0
+        # Генерация машин для каждого направления
+        for direction, interval in self.controller.traffic_spawn_rates.items():
+            self.last_car_spawns[direction] += dt
+            if interval > 0 and self.last_car_spawns[direction] > interval and len(self.cars) < MAX_CARS:
+                self.spawn_car(direction)
+                self.last_car_spawns[direction] = 0
 
         # Генерация пешеходов
         self.last_ped_spawn += dt

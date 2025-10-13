@@ -89,6 +89,8 @@ class TrafficController:
         self.switch_threshold = 10.0
         self.waiting_cars_h = 0
         self.waiting_cars_v = 0
+        self.h_penalty = 0.0
+        self.v_penalty = 0.0
 
         if self.lights:
             self.update_lights()
@@ -126,10 +128,12 @@ class TrafficController:
     def get_ped_color(self, cross_road):
         return 'green' if self.is_all_red() else 'red'
 
-    def update(self, dt, waiting_h, waiting_v):
+    def update(self, dt, waiting_h, waiting_v, h_penalty, v_penalty):
         self.timer += dt
         self.waiting_cars_h = waiting_h
         self.waiting_cars_v = waiting_v
+        self.h_penalty = h_penalty
+        self.v_penalty = v_penalty
 
         if self.mode == 'dynamic':
             should_switch = self.evaluate_dynamic_switch(dt)
@@ -148,9 +152,9 @@ class TrafficController:
         """Оценивает необходимость переключения фазы в динамическом режиме"""
         current_phase_info = self.phases[self.current_phase]
 
-        # Вычисляем суммарное время ожидания (квадраты для штрафа за долгое ожидание)
-        h_waiting_penalty = self.waiting_cars_h ** 2
-        v_waiting_penalty = self.waiting_cars_v ** 2
+        # Используем сумму квадратов времени ожидания как штраф
+        h_waiting_penalty = self.h_penalty
+        v_waiting_penalty = self.v_penalty
 
         # Если текущая фаза зеленая для горизонтального направления
         if current_phase_info['horiz'] == 'green':

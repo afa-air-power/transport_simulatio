@@ -143,17 +143,16 @@ class UIManager:
         self.add_button((screen_config.width - UI_PANEL_WIDTH + 155, y, 125, 30), "Сбросить", self.reset_settings)
         y += 40
 
-        self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), "Ручное управление (горизонт.):")
-        y += 25
-        self.add_dropdown((screen_config.width - UI_PANEL_WIDTH + 20, y, 260, 30), ["Красный", "Желтый", "Зеленый"], 0, "Цвет", self.set_traffic_color)
-        y += 40
-
         info_y = y
         self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Текущая фаза: {self.sim.current_phase}"))
         info_y += 25
         self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Время: {self.sim.phase_time:.1f}"))
         info_y += 25
         self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Людей: {len(self.sim.pedestrians)}"))
+        info_y += 25
+        self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}"))
+        info_y += 25
+        self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}"))
         y = info_y + 40
 
         self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), "Редактор Фаз:")
@@ -323,7 +322,6 @@ class UIManager:
         return False
 
     def toggle_pause(self): self.sim.toggle_pause()
-    def set_traffic_color(self, color): self.sim.set_traffic_color({"Красный": "red", "Желтый": "yellow", "Зеленый": "green"}[color])
     def update_phase_color(self, i, d, c): self.sim.controller.update_phase_color(i, d, c); self.rebuild_ui_elements()
     def change_phase_duration(self, i, d): self.sim.controller.change_phase_duration(i, d); self.rebuild_ui_elements()
     def move_phase(self, i, d): self.sim.controller.move_phase(i, d); self.rebuild_ui_elements()
@@ -341,6 +339,9 @@ class UIManager:
         self.info_texts[0]['text'] = f"Текущая фаза: {self.sim.current_phase}"
         self.info_texts[1]['text'] = f"Время: {self.sim.phase_time:.1f} / {self.sim.controller.phases[self.sim.current_phase]['duration']}"
         self.info_texts[2]['text'] = f"Людей: {len(self.sim.pedestrians)}"
+        self.info_texts[3]['text'] = f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}"
+        self.info_texts[4]['text'] = f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}"
+
         if self.sim.controller.current_phase != self.last_known_phase:
             self.last_known_phase = self.sim.controller.current_phase
             self.rebuild_ui_elements()

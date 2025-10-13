@@ -200,6 +200,10 @@ class TrafficSimulation:
         # Свойства для совместимости с UI
         self.current_phase = 0
         self.phase_time = 0.0
+        self.waiting_cars_h = 0
+        self.waiting_cars_v = 0
+        self.h_wait_time_sq_sum = 0.0
+        self.v_wait_time_sq_sum = 0.0
 
     def update_screen_size(self):
         """Обновляет позиции светофоров при изменении размера экрана"""
@@ -208,14 +212,6 @@ class TrafficSimulation:
     def set_phase_duration(self, duration):
         if self.controller and 0 <= self.controller.current_phase < len(self.controller.phases):
             self.controller.phases[self.controller.current_phase]['duration'] = max(1.0, duration)
-
-    def set_traffic_color(self, color):
-        # Упрощенное ручное управление для горизонтальных светофоров по запросу UI
-        if self.controller:
-            h_color = color.lower()
-            if h_color in ['red', 'yellow', 'green']:
-                self.controller.lights['h_left'].set_color(h_color)
-                self.controller.lights['h_right'].set_color(h_color)
 
     def toggle_pause(self):
         self.paused = not self.paused
@@ -271,11 +267,21 @@ class TrafficSimulation:
         if self.paused:
             return
 
-        # Подсчитываем ожидающие машины
-        waiting_h = sum(1 for car in self.cars if car.is_waiting and abs(car.heading[0]) > abs(car.heading[1]))
-        waiting_v = sum(1 for car in self.cars if car.is_waiting and abs(car.heading[1]) > abs(car.heading[0]))
+        # Подсчитываем ожидающие машины и штрафы
+        self.waiting_cars_h = 0
+        self.waiting_cars_v = 0
+        self.h_wait_time_sq_sum = 0.0
+        self.v_wait_time_sq_sum = 0.0
+        for car in self.cars:
+            if car.is_waiting:
+                if abs(car.heading[0]) > abs(car.heading[1]):
+                    self.waiting_cars_h += 1
+                    self.h_wait_time_sq_sum += car.waiting_time ** 2
+                else:
+                    self.waiting_cars_v += 1
+                    self.v_wait_time_sq_sum += car.waiting_time ** 2
 
-        self.controller.update(dt, waiting_h, waiting_v)
+        self.controller.update(dt, self.waiting_cars_h, self.waiting_cars_v, self.h_wait_time_sq_sum, self.v_wait_time_sq_sum)
 
         self.current_phase = self.controller.current_phase
         self.phase_time = self.controller.timer

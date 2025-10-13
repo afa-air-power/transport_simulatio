@@ -89,7 +89,8 @@ class TrafficController:
         self.dynamic_logic_factor = 0.99  # Фактор затухания для взвешенного штрафа
         self.weighted_h_penalty = 0.0
         self.weighted_v_penalty = 0.0
-        self.traffic_spawn_rates = {d: 2.0 for d in DIR_INS}
+        # Плотность трафика: машин в среднем за 10 секунд
+        self.traffic_density = {d: 5.0 for d in DIR_INS}
 
 
         # Старые переменные для обратной совместимости и UI
@@ -239,7 +240,7 @@ class TrafficController:
             'min_phase_time': self.min_phase_time,
             'max_phase_time': self.max_phase_time,
             'dynamic_logic_factor': self.dynamic_logic_factor,
-            'traffic_spawn_rates': self.traffic_spawn_rates,
+            'traffic_density': self.traffic_density,
         }
 
     def import_config_dict(self, data: dict):
@@ -279,10 +280,10 @@ class TrafficController:
         if isinstance(dlf, (int, float)) and 0 < dlf <= 1:
             self.dynamic_logic_factor = float(dlf)
 
-        rates = data.get('traffic_spawn_rates')
+        rates = data.get('traffic_density')
         if isinstance(rates, dict):
             for d in DIR_INS:
-                if d in rates and isinstance(rates[d], (int, float)) and rates[d] > 0:
-                    self.traffic_spawn_rates[d] = float(rates[d])
+                if d in rates and isinstance(rates[d], (int, float)) and rates[d] >= 0:
+                    self.traffic_density[d] = float(rates[d])
 
         self.update_lights()

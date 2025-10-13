@@ -35,10 +35,10 @@
   "min_phase_time": 5.0,
   "max_phase_time": 60.0,
   "dynamic_logic_factor": 0.99,
-  "traffic_spawn_rates": {
-    "from_west": 2.0,
-    "from_east": 2.0,
-    "from_north": 2.0,
-    "from_south": 2.0
+  "traffic_density": {
+    "from_west": 5.0,
+    "from_east": 5.0,
+    "from_north": 5.0,
+    "from_south": 5.0
   }
 }

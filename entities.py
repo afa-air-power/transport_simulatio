@@ -8,6 +8,9 @@ class Vehicle:
         self.dir_in = dir_in
         self.turn = random.choices([0, 1, 2], TURN_PROBS)[0]
         self.lane = random.randint(0, num_lanes - 1)
+        self.target_lane = self.lane
+        self.set_target_lane(num_lanes)
+
         self.target_speed = random.uniform(SPEED_MIN, SPEED_MAX)
         self.current_speed = 0
         self.pos = self.get_initial_pos(num_lanes)
@@ -32,6 +35,29 @@ class Vehicle:
         self.width = random.uniform(2, 3.5)
         self.accel_rate = random.uniform(1.5, 3.0)
         self.brake_rate = random.uniform(4.0, 6.0)
+
+    def set_target_lane(self, num_lanes):
+        """Определяет целевую полосу в зависимости от направления поворота."""
+        # turn: 0=прямо, 1=направо, 2=налево
+        # lane: 0=крайняя левая, N-1=крайняя правая (относительно направления движения)
+        if num_lanes < 2:
+            self.target_lane = self.lane
+            return
+
+        # Простое правило: левая полоса для поворота налево, правая - направо.
+        # Для движения прямо можно использовать любую полосу, кроме крайней для поворота.
+        if self.turn == 2:  # Налево
+            self.target_lane = 0
+        elif self.turn == 1:  # Направо
+            self.target_lane = num_lanes - 1
+        else:  # Прямо
+            # Если случайно оказались в полосе только для поворота, надо сместиться
+            if self.lane == 0:
+                self.target_lane = 1
+            elif self.lane == num_lanes - 1:
+                self.target_lane = num_lanes - 2
+            else:
+                self.target_lane = self.lane
 
     def get_initial_pos(self, num_lanes):
         offset = - (num_lanes * LANE_WIDTH) / 2 + self.lane * LANE_WIDTH + LANE_WIDTH / 2

@@ -31,7 +31,7 @@ def main():
 
         # Обновление
         sim.update(dt)
-        ui.update()
+        ui.update(dt)
 
         # Отрисовка
         screen.fill(BLACK)

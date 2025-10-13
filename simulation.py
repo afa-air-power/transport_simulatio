@@ -285,11 +285,13 @@ class TrafficSimulation:
         self.phase_time = self.controller.timer
 
         # Генерация машин для каждого направления
-        for direction, interval in self.controller.traffic_spawn_rates.items():
-            self.last_car_spawns[direction] += dt
-            if interval > 0 and self.last_car_spawns[direction] > interval and len(self.cars) < MAX_CARS:
-                self.spawn_car(direction)
-                self.last_car_spawns[direction] = 0
+        for direction, density in self.controller.traffic_density.items():
+            if density > 0:
+                interval = 10.0 / density
+                self.last_car_spawns[direction] += dt
+                if self.last_car_spawns[direction] > interval and len(self.cars) < MAX_CARS:
+                    self.spawn_car(direction)
+                    self.last_car_spawns[direction] = 0
 
         # Генерация пешеходов
         self.last_ped_spawn += dt

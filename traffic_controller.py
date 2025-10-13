@@ -185,6 +185,9 @@ class TrafficController:
         self.phases[index]['duration'] = max(1, new_duration)
 
     def update_phase_color(self, index, direction, color):
+        other_direction = 'vert' if direction == 'horiz' else 'horiz'
+        if color == 'green' and self.phases[index][other_direction] == 'green':
+            self.phases[index][other_direction] = 'red'
         self.phases[index][direction] = color
 
     def move_phase(self, index, move_by):
@@ -192,3 +195,50 @@ class TrafficController:
         if not (0 <= index < len(self.phases) and 0 <= new_index < len(self.phases)):
             return
         self.phases.insert(new_index, self.phases.pop(index))
+
+    # ---- Импорт/Экспорт конфигурации ----
+    def export_config_dict(self):
+        return {
+            'mode': self.mode,
+            'phases': self.phases,
+            'min_phase_time': self.min_phase_time,
+            'max_phase_time': self.max_phase_time,
+            'switch_threshold': self.switch_threshold
+        }
+
+    def import_config_dict(self, data: dict):
+        # Безопасные присваивания с валидацией
+        mode = data.get('mode', self.mode)
+        if mode in ['static', 'dynamic']:
+            self.mode = mode
+
+        phases = data.get('phases')
+        if isinstance(phases, list) and len(phases) > 0:
+            cleaned = []
+            for ph in phases:
+                try:
+                    d = int(max(1, ph.get('duration', 10)))
+                    h = ph.get('horiz', 'red')
+                    v = ph.get('vert', 'red')
+                    # недопустимо два зелёных
+                    if h == 'green' and v == 'green':
+                        v = 'red'
+                    cleaned.append({'duration': d, 'horiz': h, 'vert': v})
+                except Exception:
+                    continue
+            if cleaned:
+                self.phases = cleaned
+                self.current_phase = min(self.current_phase, len(self.phases) - 1)
+                self.timer = 0
+
+        mpt = data.get('min_phase_time')
+        if isinstance(mpt, (int, float)) and mpt > 0:
+            self.min_phase_time = float(mpt)
+        mxpt = data.get('max_phase_time')
+        if isinstance(mxpt, (int, float)) and mxpt >= self.min_phase_time:
+            self.max_phase_time = float(mxpt)
+        thr = data.get('switch_threshold')
+        if isinstance(thr, (int, float)) and thr >= 0:
+            self.switch_threshold = float(thr)
+
+        self.update_lights()

@@ -155,48 +155,54 @@ class UIManager:
         self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}"))
         y = info_y + 40
 
-        self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), "Редактор Фаз:")
-        y += 25
-        phases_area_start_y = y
+        # В динамическом режиме редактор фаз не нужен
+        if self.sim.controller.mode == 'static':
+            self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), "Редактор Фаз:")
+            y += 25
+            phases_area_start_y = y
 
-        add_phase_button_h = 40
-        self.phases_viewport_rect = pygame.Rect(screen_config.width - UI_PANEL_WIDTH, phases_area_start_y, UI_PANEL_WIDTH, screen_config.height - phases_area_start_y - add_phase_button_h - 15)
+            add_phase_button_h = 40
+            self.phases_viewport_rect = pygame.Rect(screen_config.width - UI_PANEL_WIDTH, phases_area_start_y, UI_PANEL_WIDTH, screen_config.height - phases_area_start_y - add_phase_button_h - 15)
 
-        colors_eng = ["green", "yellow", "red"]
-        y_content_offset = 0
-        for i, phase in enumerate(self.sim.controller.phases):
-            block_y = phases_area_start_y + y_content_offset - self.scroll_y
+            colors_eng = ["green", "yellow", "red"]
+            y_content_offset = 0
+            for i, phase in enumerate(self.sim.controller.phases):
+                block_y = phases_area_start_y + y_content_offset - self.scroll_y
 
-            if i == self.sim.controller.current_phase:
-                highlight_rect = pygame.Rect(screen_config.width - UI_PANEL_WIDTH + 10, block_y - 5, UI_PANEL_WIDTH - 20, 48)
-                self.elements.append({'type': 'rect', 'rect': highlight_rect, 'color': (90, 90, 70)})
+                if i == self.sim.controller.current_phase:
+                    highlight_rect = pygame.Rect(screen_config.width - UI_PANEL_WIDTH + 10, block_y - 5, UI_PANEL_WIDTH - 20, 48)
+                    self.elements.append({'type': 'rect', 'rect': highlight_rect, 'color': (90, 90, 70)})
 
-            self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, block_y), f"Длительность: {phase['duration']}s")
-            self.add_button((screen_config.width - UI_PANEL_WIDTH + 150, block_y - 2, 25, 20), "+5", lambda index=i: self.change_phase_duration(index, 5))
-            self.add_button((screen_config.width - UI_PANEL_WIDTH + 180, block_y - 2, 25, 20), "-5", lambda index=i: self.change_phase_duration(index, -5))
+                self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, block_y), f"Длительность: {phase['duration']}s")
+                self.add_button((screen_config.width - UI_PANEL_WIDTH + 150, block_y - 2, 25, 20), "+5", lambda index=i: self.change_phase_duration(index, 5))
+                self.add_button((screen_config.width - UI_PANEL_WIDTH + 180, block_y - 2, 25, 20), "-5", lambda index=i: self.change_phase_duration(index, -5))
 
-            h_color_idx = colors_eng.index(phase['horiz'])
-            dd_h = self.add_dropdown((screen_config.width - UI_PANEL_WIDTH + 20, block_y + 18, 85, 25), colors_eng, h_color_idx, "Horiz", lambda color, index=i: self.update_phase_color(index, 'horiz', color))
-            v_color_idx = colors_eng.index(phase['vert'])
-            dd_v = self.add_dropdown((screen_config.width - UI_PANEL_WIDTH + 110, block_y + 18, 85, 25), colors_eng, v_color_idx, "Vert", lambda color, index=i: self.update_phase_color(index, 'vert', color))
+                h_color_idx = colors_eng.index(phase['horiz'])
+                dd_h = self.add_dropdown((screen_config.width - UI_PANEL_WIDTH + 20, block_y + 18, 85, 25), colors_eng, h_color_idx, "Horiz", lambda color, index=i: self.update_phase_color(index, 'horiz', color))
+                v_color_idx = colors_eng.index(phase['vert'])
+                dd_v = self.add_dropdown((screen_config.width - UI_PANEL_WIDTH + 110, block_y + 18, 85, 25), colors_eng, v_color_idx, "Vert", lambda color, index=i: self.update_phase_color(index, 'vert', color))
 
-            self.add_button((screen_config.width - UI_PANEL_WIDTH + 210, block_y - 2, 30, 22), "↑", lambda index=i: self.move_phase(index, -1))
-            self.add_button((screen_config.width - UI_PANEL_WIDTH + 245, block_y - 2, 30, 22), "↓", lambda index=i: self.move_phase(index, 1))
-            self.add_button((screen_config.width - UI_PANEL_WIDTH + 210, block_y + 21, 65, 22), "X", lambda index=i: self.delete_phase(index))
+                self.add_button((screen_config.width - UI_PANEL_WIDTH + 210, block_y - 2, 30, 22), "↑", lambda index=i: self.move_phase(index, -1))
+                self.add_button((screen_config.width - UI_PANEL_WIDTH + 245, block_y - 2, 30, 22), "↓", lambda index=i: self.move_phase(index, 1))
+                self.add_button((screen_config.width - UI_PANEL_WIDTH + 210, block_y + 21, 65, 22), "X", lambda index=i: self.delete_phase(index))
 
-            y_content_offset += 50
-            if open_dropdown_rect and open_dropdown_rect == dd_h.rect:
-                dd_h.is_open = True
-                y_content_offset += dd_h.open_height
-            if open_dropdown_rect and open_dropdown_rect == dd_v.rect:
-                dd_v.is_open = True
-                y_content_offset += dd_v.open_height
+                y_content_offset += 50
+                if open_dropdown_rect and open_dropdown_rect == dd_h.rect:
+                    dd_h.is_open = True
+                    y_content_offset += dd_h.open_height
+                if open_dropdown_rect and open_dropdown_rect == dd_v.rect:
+                    dd_v.is_open = True
+                    y_content_offset += dd_v.open_height
 
-        self.total_phases_height = y_content_offset
-        max_scroll = max(0, self.total_phases_height - self.phases_viewport_rect.height)
-        self.scroll_y = max(0, min(self.scroll_y, max_scroll))
+            self.total_phases_height = y_content_offset
+            max_scroll = max(0, self.total_phases_height - self.phases_viewport_rect.height)
+            self.scroll_y = max(0, min(self.scroll_y, max_scroll))
 
-        self.add_button((screen_config.width - UI_PANEL_WIDTH + 50, self.phases_viewport_rect.bottom + 10, 200, 30), "Добавить фазу", self.add_new_phase)
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 50, self.phases_viewport_rect.bottom + 10, 200, 30), "Добавить фазу", self.add_new_phase)
+        else:
+            self.phases_viewport_rect = None
+            self.total_phases_height = 0
+            self.scroll_y = 0
 
     def add_button(self, rect, text, callback):
         button = Button(rect, text, callback)

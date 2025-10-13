@@ -86,11 +86,14 @@ class TrafficController:
         # Параметры динамического режима
         self.min_phase_time = 5.0
         self.max_phase_time = 60.0
-        self.switch_threshold = 10.0
         self.waiting_cars_h = 0
         self.waiting_cars_v = 0
         self.h_penalty = 0.0
         self.v_penalty = 0.0
+        # Интегральные (накопленные) штрафы
+        self.integrated_h_penalty = 0.0
+        self.integrated_v_penalty = 0.0
+
 
         if self.lights:
             self.update_lights()
@@ -135,39 +138,58 @@ class TrafficController:
         self.h_penalty = h_penalty
         self.v_penalty = v_penalty
 
+        # Накапливаем "недовольство" (интегрированный штраф) для каждого направления
+        self.integrated_h_penalty += self.h_penalty * dt
+        self.integrated_v_penalty += self.v_penalty * dt
+
+        should_switch = False
         if self.mode == 'dynamic':
-            should_switch = self.evaluate_dynamic_switch(dt)
-            if should_switch and self.timer >= self.min_phase_time:
-                self.timer = 0
-                self.current_phase = (self.current_phase + 1) % len(self.phases)
-        else:
-            # Статический режим
-            if self.timer > self.phases[self.current_phase]['duration']:
-                self.timer = 0
-                self.current_phase = (self.current_phase + 1) % len(self.phases)
+            if self.evaluate_dynamic_switch():
+                should_switch = True
+        else:  # static mode
+            if self.timer >= self.phases[self.current_phase]['duration']:
+                should_switch = True
+
+        if should_switch:
+            self.timer = 0
+            self.current_phase = (self.current_phase + 1) % len(self.phases)
+
+            # "Списываем" накопленный штраф для направления, получившего зеленый свет
+            new_phase_info = self.phases[self.current_phase]
+            if new_phase_info['horiz'] == 'green' and new_phase_info['vert'] == 'red':
+                self.integrated_h_penalty = 0.0
+            elif new_phase_info['vert'] == 'green' and new_phase_info['horiz'] == 'red':
+                self.integrated_v_penalty = 0.0
 
         self.update_lights()
 
-    def evaluate_dynamic_switch(self, dt):
-        """Оценивает необходимость переключения фазы в динамическом режиме"""
+    def evaluate_dynamic_switch(self):
+        """
+        Оценивает необходимость переключения фазы в динамическом режиме.
+        Цель - сбалансировать "интегральный штраф" (накопленное недовольство) ожидающих направлений.
+        """
         current_phase_info = self.phases[self.current_phase]
 
-        # Используем сумму квадратов времени ожидания как штраф
-        h_waiting_penalty = self.h_penalty
-        v_waiting_penalty = self.v_penalty
+        is_h_green = current_phase_info['horiz'] == 'green' and current_phase_info['vert'] == 'red'
+        is_v_green = current_phase_info['vert'] == 'green' and current_phase_info['horiz'] == 'red'
 
-        # Если текущая фаза зеленая для горизонтального направления
-        if current_phase_info['horiz'] == 'green':
-            # Переключаемся, если много вертикальных машин ждет
-            return v_waiting_penalty > h_waiting_penalty + self.switch_threshold
+        if is_h_green or is_v_green:
+            # Принудительное соблюдение минимального и максимального времени зеленой фазы
+            if self.timer < self.min_phase_time:
+                return False
+            if self.timer > self.max_phase_time:
+                return True
 
-        # Если текущая фаза зеленая для вертикального направления  
-        elif current_phase_info['vert'] == 'green':
-            # Переключаемся, если много горизонтальных машин ждет
-            return h_waiting_penalty > v_waiting_penalty + self.switch_threshold
+            # Основная логика: переключаемся, если накопленный штраф другого направления стал больше
+            if is_h_green:
+                return self.integrated_v_penalty > self.integrated_h_penalty
+            if is_v_green:
+                return self.integrated_h_penalty > self.integrated_v_penalty
+        else:
+            # Для желтой и красной фаз используем их фиксированную длительность
+            return self.timer >= current_phase_info['duration']
 
-        # Для промежуточных фаз (желтый, красный) используем минимальное время
-        return self.timer >= 3.0
+        return False
 
     def set_mode(self, mode):
         """Устанавливает режим работы светофора"""

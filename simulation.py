@@ -91,7 +91,13 @@ class PathGenerator:
             List[(float, float)]: Список координат waypoints
         """
         road_half = (NUM_LANES * LANE_WIDTH) / 2  # = 40 (половина ширины всех полос)
-        entry_dist = 500  # Расстояние появления машины за экраном
+
+        # Динамически рассчитываем расстояние появления машины за экраном,
+        # чтобы оно было в пределах видимости и не приводило к удалению.
+        from constants import screen_config
+        entry_dist_x = screen_config.sim_width / 2 + 50
+        entry_dist_y = screen_config.sim_height / 2 + 50
+
 
         waypoints = []
 
@@ -102,13 +108,13 @@ class PathGenerator:
             # Входящие полосы запада: Y = -30 (lane 0) или Y = -10 (lane 1)
             entry_y = -road_half + (lane + 0.5) * LANE_WIDTH
 
-            waypoints.append((-entry_dist, entry_y))
+            waypoints.append((-entry_dist_x, entry_y))
             waypoints.append((-road_half - 20, entry_y))
 
             if turn_direction == 'straight':
                 # ПРЯМО → восток (остаёмся на той же полосе)
                 waypoints.append((road_half + 20, entry_y))
-                waypoints.append((entry_dist, entry_y))
+                waypoints.append((entry_dist_x, entry_y))
 
             elif turn_direction == 'left':
                 # НАЛЕВО → СЕВЕР (поворот вверх ↑)
@@ -120,7 +126,7 @@ class PathGenerator:
                 waypoints.append((-5, -5))
                 waypoints.append((exit_x, -15))
                 waypoints.append((exit_x, -road_half - 20))
-                waypoints.append((exit_x, -entry_dist))
+                waypoints.append((exit_x, -entry_dist_y))
 
             elif turn_direction == 'right':
                 # НАПРАВО → ЮГ (поворот вниз ↓)
@@ -132,7 +138,7 @@ class PathGenerator:
                 waypoints.append((-5, 5))
                 waypoints.append((exit_x, 15))
                 waypoints.append((exit_x, road_half + 20))
-                waypoints.append((exit_x, entry_dist))
+                waypoints.append((exit_x, entry_dist_y))
 
         # ════════════════════════════════════════════════════════
         # ВОСТОК → ЗАПАД (справа налево, движение ←)
@@ -141,13 +147,13 @@ class PathGenerator:
             # Входящие полосы востока: Y = +30 (lane 0) или Y = +10 (lane 1)
             entry_y = road_half - (lane + 0.5) * LANE_WIDTH
 
-            waypoints.append((entry_dist, entry_y))
+            waypoints.append((entry_dist_x, entry_y))
             waypoints.append((road_half + 20, entry_y))
 
             if turn_direction == 'straight':
                 # ПРЯМО → запад
                 waypoints.append((-road_half - 20, entry_y))
-                waypoints.append((-entry_dist, entry_y))
+                waypoints.append((-entry_dist_x, entry_y))
 
             elif turn_direction == 'left':
                 # НАЛЕВО → ЮГ (поворот вниз ↓)
@@ -159,7 +165,7 @@ class PathGenerator:
                 waypoints.append((5, 5))
                 waypoints.append((exit_x, 15))
                 waypoints.append((exit_x, road_half + 20))
-                waypoints.append((exit_x, entry_dist))
+                waypoints.append((exit_x, entry_dist_y))
 
             elif turn_direction == 'right':
                 # НАПРАВО → СЕВЕР (поворот вверх ↑)
@@ -171,89 +177,81 @@ class PathGenerator:
                 waypoints.append((5, -5))
                 waypoints.append((exit_x, -15))
                 waypoints.append((exit_x, -road_half - 20))
-                waypoints.append((exit_x, -entry_dist))
+                waypoints.append((exit_x, -entry_dist_y))
 
         # ════════════════════════════════════════════════════════
         # СЕВЕР → ЮГ (сверху вниз, движение ↓)
         # ════════════════════════════════════════════════════════
         elif from_direction == 'from_north':
-            # Входящие полосы севера: X = +30 (lane 0) или X = +10 (lane 1)
-            # lane 0 -> X = 40 - 0.5*20 = 30, lane 1 -> X = 40 - 1.5*20 = 10
-            # Север движется ВНИЗ, справа от центральной линии
+            # ЛЕВОСТОРОННЕЕ ДВИЖЕНИЕ: едем по ЛЕВОЙ стороне относительно направления
+            # Север движется ВНИЗ, поэтому левая сторона = СПРАВА от оси Y (положительный X)
+            # Входящие полосы севера: X = +30 (lane 0, ближе к центру) или X = +10 (lane 1, дальше)
             entry_x = road_half - (lane + 0.5) * LANE_WIDTH
 
-            waypoints.append((entry_x, -entry_dist))
+            waypoints.append((entry_x, -entry_dist_y))
             waypoints.append((entry_x, -road_half - 20))
 
             if turn_direction == 'straight':
                 # ПРЯМО → юг
                 waypoints.append((entry_x, road_half + 20))
-                waypoints.append((entry_x, entry_dist))
+                waypoints.append((entry_x, entry_dist_y))
 
             elif turn_direction == 'left':
-                # НАЛЕВО → ВОСТОК (поворот направо →)
-                # Восток движется ВЛЕВО, исходящие полосы: Y = +30, +10
-                # Используем ту же полосу (lane 0 -> +30, lane 1 -> +10)
-                exit_y = road_half - (lane + 0.5) * LANE_WIDTH
+                # НАЛЕВО → ВОСТОК. Движение на восток = отрицательный Y.
+                exit_y = -road_half + (lane + 0.5) * LANE_WIDTH
 
                 waypoints.append((entry_x, -15))
                 waypoints.append((5, -5))
                 waypoints.append((15, exit_y))
                 waypoints.append((road_half + 20, exit_y))
-                waypoints.append((entry_dist, exit_y))
+                waypoints.append((entry_dist_x, exit_y))
 
             elif turn_direction == 'right':
-                # НАПРАВО → ЗАПАД (поворот налево ←)
-                # Запад движется ВПРАВО, исходящие полосы: Y = -30, -10
-                # Зеркалим: lane 0 -> -30, lane 1 -> -10
-                exit_y = -road_half + (lane + 0.5) * LANE_WIDTH
+                # НАПРАВО → ЗАПАД. Движение на запад = положительный Y.
+                exit_y = road_half - (lane + 0.5) * LANE_WIDTH
 
                 waypoints.append((entry_x, -15))
                 waypoints.append((-5, -5))
                 waypoints.append((-15, exit_y))
                 waypoints.append((-road_half - 20, exit_y))
-                waypoints.append((-entry_dist, exit_y))
+                waypoints.append((-entry_dist_x, exit_y))
 
         # ════════════════════════════════════════════════════════
         # ЮГ → СЕВЕР (снизу вверх, движение ↑)
         # ════════════════════════════════════════════════════════
         elif from_direction == 'from_south':
-            # Входящие полосы юга: X = -30 (lane 0) или X = -10 (lane 1)
-            # Юг движется ВВЕРХ, слева от центральной линии
-            # lane 0 -> X = -40 + 0.5*20 = -30, lane 1 -> X = -40 + 1.5*20 = -10
+            # ЛЕВОСТОРОННЕЕ ДВИЖЕНИЕ: едем по ЛЕВОЙ стороне относительно направления
+            # Юг движется ВВЕРХ, поэтому левая сторона = СЛЕВА от оси Y (отрицательный X)
+            # Входящие полосы юга: X = -30 (lane 0, ближе к центру) или X = -10 (lane 1, дальше)
             entry_x = -road_half + (lane + 0.5) * LANE_WIDTH
 
-            waypoints.append((entry_x, entry_dist))
+            waypoints.append((entry_x, entry_dist_y))
             waypoints.append((entry_x, road_half + 20))
 
             if turn_direction == 'straight':
                 # ПРЯМО → север
                 waypoints.append((entry_x, -road_half - 20))
-                waypoints.append((entry_x, -entry_dist))
+                waypoints.append((entry_x, -entry_dist_y))
 
             elif turn_direction == 'left':
-                # НАЛЕВО → ЗАПАД (поворот налево ←)
-                # Запад движется ВПРАВО, исходящие полосы: Y = -30, -10
-                # Используем ту же полосу (lane 0 -> -30, lane 1 -> -10)
-                exit_y = -road_half + (lane + 0.5) * LANE_WIDTH
+                # НАЛЕВО → ЗАПАД. Движение на запад = положительный Y.
+                exit_y = road_half - (lane + 0.5) * LANE_WIDTH
 
                 waypoints.append((entry_x, 15))
                 waypoints.append((-5, 5))
                 waypoints.append((-15, exit_y))
                 waypoints.append((-road_half - 20, exit_y))
-                waypoints.append((-entry_dist, exit_y))
+                waypoints.append((-entry_dist_x, exit_y))
 
             elif turn_direction == 'right':
-                # НАПРАВО → ВОСТОК (поворот направо →)
-                # Восток движется ВЛЕВО, исходящие полосы: Y = +30, +10
-                # Зеркалим: lane 0 -> +30, lane 1 -> +10
-                exit_y = road_half - (lane + 0.5) * LANE_WIDTH
+                # НАПРАВО → ВОСТОК. Движение на восток = отрицательный Y.
+                exit_y = -road_half + (lane + 0.5) * LANE_WIDTH
 
                 waypoints.append((entry_x, 15))
                 waypoints.append((5, 5))
                 waypoints.append((15, exit_y))
                 waypoints.append((road_half + 20, exit_y))
-                waypoints.append((entry_dist, exit_y))
+                waypoints.append((entry_dist_x, exit_y))
 
         return waypoints
 
@@ -1059,54 +1057,41 @@ class TrafficSimulation:
         self.paused = not self.paused
 
     def can_spawn_car(self, direction):
-        """
-        Проверяет, можно ли заспавнить машину в данном направлении.
-        Возвращает False если в зоне спавна уже есть машина (пробка).
-        """
+        info = pygame.display.Info()
+        window_width = info.current_w
+        window_height = info.current_h
+
         road_half = (NUM_LANES * LANE_WIDTH) / 2
-        spawn_check_distance = 200  # Расстояние от края для проверки
+        spawn_margin = 50
+        window_half_width = window_width / 2
+        window_half_height = window_height / 2
 
-        # Определяем зону спавна для каждого направления
+        # Минимальное расстояние между машинами на спавне
+        min_spawn_distance = 80
+
         if direction == 'from_west':
-            # Проверяем зону слева от экрана
-            spawn_zone_start = -50
-            spawn_zone_end = -road_half - spawn_check_distance
-
+            spawn_x = -window_half_width - spawn_margin
             for car in self.cars:
-                # Только машины, движущиеся на восток
-                if car.from_direction == 'from_west':
-                    if spawn_zone_start < car.pos[0] < spawn_zone_end:
-                        return False
+                if car.from_direction == 'from_west' and abs(car.pos[0] - spawn_x) < min_spawn_distance:
+                    return False
 
         elif direction == 'from_east':
-            # Проверяем зону справа от экрана
-            spawn_zone_start = road_half + spawn_check_distance
-            spawn_zone_end = 50
-
+            spawn_x = window_half_width + spawn_margin
             for car in self.cars:
-                if car.from_direction == 'from_east':
-                    if spawn_zone_start < car.pos[0] < spawn_zone_end:
-                        return False
+                if car.from_direction == 'from_east' and abs(car.pos[0] - spawn_x) < min_spawn_distance:
+                    return False
 
         elif direction == 'from_north':
-            # Проверяем зону сверху экрана
-            spawn_zone_start = -50
-            spawn_zone_end = -road_half - spawn_check_distance
-
+            spawn_y = -window_half_height - spawn_margin
             for car in self.cars:
-                if car.from_direction == 'from_north':
-                    if spawn_zone_start < car.pos[1] < spawn_zone_end:
-                        return False
+                if car.from_direction == 'from_north' and abs(car.pos[1] - spawn_y) < min_spawn_distance:
+                    return False
 
         elif direction == 'from_south':
-            # Проверяем зону снизу экрана
-            spawn_zone_start = road_half + spawn_check_distance
-            spawn_zone_end = 50
-
+            spawn_y = window_half_height + spawn_margin
             for car in self.cars:
-                if car.from_direction == 'from_south':
-                    if spawn_zone_start < car.pos[1] < spawn_zone_end:
-                        return False
+                if car.from_direction == 'from_south' and abs(car.pos[1] - spawn_y) < min_spawn_distance:
+                    return False
 
         return True
 
@@ -1197,8 +1182,10 @@ class TrafficSimulation:
         self.current_phase = self.controller.current_phase
         self.phase_time = self.controller.timer
 
-        # генерация машин
-        for direction, density in self.controller.traffic_density.items():
+        # генерация машин ДЛЯ ВСЕХ ЧЕТЫРЕХ НАПРАВЛЕНИЙ
+        for direction in DIR_INS:
+            density = self.controller.traffic_density.get(direction, 0.0)
+
             if density > 0:
                 # Интервал между спавнами: 10 секунд делим на плотность
                 # Например: density=5 -> интервал=2 секунды (5 машин за 10 сек)

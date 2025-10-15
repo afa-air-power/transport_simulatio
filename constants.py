@@ -75,6 +75,7 @@ UI_BORDER = (30, 30, 30)
 FPS = 60
 
 # Directions and turns for vehicles
+# ВАЖНО: Все четыре направления активны для левостороннего движения!
 DIR_INS = ['from_west', 'from_east', 'from_north', 'from_south']
 TURN_PROBS = [0.6, 0.2, 0.2]
 

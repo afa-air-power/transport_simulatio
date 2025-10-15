@@ -1,6 +1,20 @@
 # constants.py
 import pygame
 
+# Направления полос
+LANE_HEADINGS = {
+    # Полосы 0, 1 - westbound; 2, 3 - eastbound
+    'horizontal': {
+        0: (-1, 0), 1: (-1, 0),
+        2: (1, 0), 3: (1, 0),
+    },
+    # Полосы 0, 1 - southbound; 2, 3 - northbound
+    'vertical': {
+        0: (0, 1), 1: (0, 1),
+        2: (0, -1), 3: (0, -1),
+    }
+}
+
 # Базовые размеры (по умолчанию)
 DEFAULT_SCREEN_WIDTH = 1200
 DEFAULT_SCREEN_HEIGHT = 900
@@ -30,7 +44,7 @@ SIM_WIDTH = screen_config.sim_width
 SIM_HEIGHT = screen_config.sim_height
 ROAD_SIZE = 400  # meters from center to edge
 LANE_WIDTH = 15
-NUM_LANES = 3
+NUM_LANES = 4  # Должно быть четным для разделения на попутное/встречное движение
 PED_SIZE_MIN = 1.5
 PED_SIZE_MAX = 2.5
 PED_SPEED_MIN = 4.0  # m/s (увеличено в 4 раза)

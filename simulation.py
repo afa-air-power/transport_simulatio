@@ -14,24 +14,32 @@ class Car:
     SAFE_DISTANCE = 35  # Увеличенное расстояние между машинами
     LANE_CHANGE_DISTANCE = 50  # Дистанция для безопасного перестроения
 
-    def __init__(self, pos, heading, speed, color):
+    def __init__(self, pos, heading, speed, color, direction='from_west'):
         self.pos = list(pos)
         self.heading = list(heading)
-        self.speed = speed
+        self.max_speed = speed  # Максимальная скорость машины
+        self.current_speed = 0.0  # Текущая скорость (начинаем с 0)
         self.color = color
         self.neon_color = self.generate_neon_color(color)
+        self.direction = direction  # Направление движения (from_west, from_east, etc.)
 
         # Разнообразие размеров машин
         car_type = random.choice(['small', 'medium', 'large'])
         if car_type == 'small':
             self.length = 8
             self.width = 4
+            self.acceleration = random.uniform(15.0, 20.0)  # м/с² - быстрое ускорение
+            self.braking = random.uniform(25.0, 30.0)  # м/с² - сильное торможение
         elif car_type == 'medium':
             self.length = 12
             self.width = 6
+            self.acceleration = random.uniform(10.0, 15.0)  # м/с²
+            self.braking = random.uniform(20.0, 25.0)  # м/с²
         else:  # large
             self.length = 16
             self.width = 7
+            self.acceleration = random.uniform(7.0, 12.0)  # м/с² - медленное ускорение
+            self.braking = random.uniform(18.0, 23.0)  # м/с²
 
         self.waiting_time = 0.0
         self.is_waiting = False
@@ -61,6 +69,47 @@ class Car:
         self.last_lane_change_time = 0
         self.lane_change_cooldown = 3.0  # Секунды между перестроениями
 
+        # Определение направления полосы (попутное/встречное)
+        self.lane_direction = self.get_lane_direction()
+
+    def get_lane_direction(self):
+        """Определяет направление движения по полосе (1 = попутное, -1 = встречное)"""
+        # В зависимости от направления въезда определяем, по какой стороне дороги едем
+        if self.direction in ['from_west', 'from_north']:
+            return 1  # Попутное направление (правая сторона дороги)
+        else:
+            return -1  # Встречное направление (левая сторона дороги)
+
+    def is_lane_correct_for_direction(self, lane_index):
+        """Проверяет, подходит ли полоса для данного направления движения"""
+        # Полосы нумеруются от 0 (левая) до NUM_LANES-1 (правая)
+        # Для from_west и from_north: должны использовать правые полосы (бОльшие индексы)
+        # Для from_east и from_south: должны использовать левые полосы (меньшие индексы)
+
+        mid_lane = NUM_LANES / 2
+
+        if self.direction in ['from_west', 'from_north']:
+            # Правостороннее движение - используем полосы с индексом >= mid_lane
+            return lane_index >= mid_lane
+        else:
+            # Левостороннее движение - используем полосы с индексом < mid_lane
+            return lane_index < mid_lane
+
+    def get_correct_lane_for_direction(self):
+        """Возвращает случайную корректную полосу для данного направления"""
+        if self.direction in ['from_west', 'from_north']:
+            # Правые полосы
+            if NUM_LANES == 1:
+                return 0
+            start_lane = NUM_LANES // 2
+            return random.randint(start_lane, NUM_LANES - 1)
+        else:
+            # Левые полосы
+            if NUM_LANES == 1:
+                return 0
+            end_lane = (NUM_LANES // 2) - 1
+            return random.randint(0, max(0, end_lane))
+
     @staticmethod
     def generate_neon_color(base_color):
         """Генерирует яркий неоновый цвет на основе базового."""
@@ -75,7 +124,8 @@ class Car:
         stop_buffer = 15
         stop_pos = road_half + stop_buffer
 
-        effective_speed = self.speed
+        # Целевая скорость (по умолчанию максимальная)
+        target_speed = self.max_speed
         was_waiting = self.is_waiting
         self.is_waiting = False
 
@@ -85,20 +135,20 @@ class Car:
                 light = controller.get_color('horizontal')
                 if light in ['red', 'yellow']:
                     if self.heading[0] > 0 and -stop_pos < self.pos[0] < -road_half:
-                        effective_speed = 0
-                        self.is_waiting = True
+                        target_speed = 0
+                        self.is_waiting = True  # Только здесь устанавливаем is_waiting (светофор)
                     elif self.heading[0] < 0 and road_half < self.pos[0] < stop_pos:
-                        effective_speed = 0
-                        self.is_waiting = True
+                        target_speed = 0
+                        self.is_waiting = True  # Только здесь устанавливаем is_waiting (светофор)
             else:
                 light = controller.get_color('vertical')
                 if light in ['red', 'yellow']:
                     if self.heading[1] > 0 and -stop_pos < self.pos[1] < -road_half:
-                        effective_speed = 0
-                        self.is_waiting = True
+                        target_speed = 0
+                        self.is_waiting = True  # Только здесь устанавливаем is_waiting (светофор)
                     elif self.heading[1] < 0 and road_half < self.pos[1] < stop_pos:
-                        effective_speed = 0
-                        self.is_waiting = True
+                        target_speed = 0
+                        self.is_waiting = True  # Только здесь устанавливаем is_waiting (светофор)
 
         # Проверяем дистанцию до впереди идущих машин и возможность перестроения
         if not self.is_turning and not self.is_changing_lane:
@@ -109,9 +159,12 @@ class Car:
                 if other is self:
                     continue
 
-                if (abs(self.heading[0] - other.heading[0]) < 0.1 and
-                    abs(self.heading[1] - other.heading[1]) < 0.1):
+                # Проверяем только машины с тем же направлением движения и направлением полосы
+                same_direction = (abs(self.heading[0] - other.heading[0]) < 0.1 and
+                                 abs(self.heading[1] - other.heading[1]) < 0.1)
+                same_lane_direction = (self.lane_direction == other.lane_direction)
 
+                if same_direction and same_lane_direction:
                     dx = other.pos[0] - self.pos[0]
                     dy = other.pos[1] - self.pos[1]
                     dist = math.hypot(dx, dy)
@@ -122,17 +175,28 @@ class Car:
                         min_distance = dist
                         car_ahead = other
 
-            # Если машина слишком близко, тормозим или пытаемся перестроиться
-            if car_ahead and min_distance < self.SAFE_DISTANCE:
-                effective_speed = 0
-                self.is_waiting = True
+            # Адаптивное управление скоростью в зависимости от расстояния до препятствия
+            if car_ahead:
+                if min_distance < self.SAFE_DISTANCE:
+                    # Очень близко - едем со скоростью впереди идущей машины (или стоим)
+                    target_speed = car_ahead.current_speed
+                    # Устанавливаем is_waiting только если полностью останавливаемся
+                    if car_ahead.current_speed < 0.1:
+                        self.is_waiting = True
 
-                # Пытаемся перестроиться, если возможно
-                if self.last_lane_change_time > self.lane_change_cooldown:
-                    self.try_lane_change(all_cars)
-            elif car_ahead and min_distance < self.SAFE_DISTANCE * 2:
-                # Замедляемся, если машина впереди на средней дистанции
-                effective_speed *= 0.5
+                    # Пытаемся перестроиться, если возможно
+                    if self.last_lane_change_time > self.lane_change_cooldown:
+                        self.try_lane_change(all_cars)
+
+                elif min_distance < self.SAFE_DISTANCE * 2:
+                    # Средняя дистанция - плавно снижаем скорость
+                    # Чем ближе препятствие, тем больше снижаем скорость
+                    distance_ratio = (min_distance - self.SAFE_DISTANCE) / self.SAFE_DISTANCE
+                    target_speed = min(target_speed, 
+                                      car_ahead.current_speed + (self.max_speed - car_ahead.current_speed) * distance_ratio)
+                elif min_distance < self.SAFE_DISTANCE * 3:
+                    # Дальняя дистанция - небольшая корректировка
+                    target_speed = min(target_speed, self.max_speed * 0.9)
 
         # Обновляем время ожидания
         if self.is_waiting:
@@ -140,22 +204,36 @@ class Car:
         elif was_waiting and not self.is_waiting:
             self.waiting_time = 0.0
 
+        # Физика разгона/торможения - ИСПРАВЛЕНО
+        # Теперь машины ВСЕГДА стремятся к целевой скорости, а не останавливаются
+        if target_speed > self.current_speed:
+            # Разгон - используем ускорение
+            acceleration_value = self.acceleration * dt
+            self.current_speed = min(self.current_speed + acceleration_value, target_speed)
+        elif target_speed < self.current_speed:
+            # Торможение - используем торможение
+            braking_value = self.braking * dt
+            self.current_speed = max(self.current_speed - braking_value, max(0, target_speed))
+
+        # Гарантируем, что скорость не отрицательна
+        self.current_speed = max(0, self.current_speed)
+
         # Проверяем начало поворота
         if not self.is_turning and not self.is_waiting and not self.is_changing_lane:
             self.check_start_turn()
 
         # Обновляем позицию
         if self.is_changing_lane:
-            self.update_lane_change(dt, effective_speed)
+            self.update_lane_change(dt, self.current_speed)
         elif self.is_turning:
-            self.update_turn(dt, effective_speed)
+            self.update_turn(dt, self.current_speed)
         else:
             # Плавная интерполяция направления для более естественного движения
             self.heading[0] += (self.target_heading[0] - self.heading[0]) * self.heading_interpolation
             self.heading[1] += (self.target_heading[1] - self.heading[1]) * self.heading_interpolation
 
-            self.pos[0] += self.heading[0] * effective_speed * dt
-            self.pos[1] += self.heading[1] * effective_speed * dt
+            self.pos[0] += self.heading[0] * self.current_speed * dt
+            self.pos[1] += self.heading[1] * self.current_speed * dt
 
     def try_lane_change(self, all_cars):
         """Пытается выполнить перестроение на соседнюю полосу."""
@@ -184,9 +262,10 @@ class Car:
         if not possible_lanes:
             return
 
-        # Проверяем каждую возможную полосу на безопасность
+        # Проверяем каждую возможную полосу на безопасность И правильность направления
         for target_lane in possible_lanes:
-            if self.is_lane_safe(target_lane, all_cars):
+            # ВАЖНО: проверяем, что целевая полоса предназначена для нашего направления движения
+            if self.is_lane_correct_for_direction(target_lane) and self.is_lane_safe(target_lane, all_cars):
                 self.start_lane_change(target_lane)
                 return
 
@@ -199,9 +278,12 @@ class Car:
             if other is self:
                 continue
 
-            # Проверяем только машины на той же дороге
-            if (abs(self.heading[0] - other.heading[0]) < 0.1 and
-                abs(self.heading[1] - other.heading[1]) < 0.1):
+            # Проверяем только машины на той же дороге и с тем же направлением полосы
+            same_direction = (abs(self.heading[0] - other.heading[0]) < 0.1 and
+                             abs(self.heading[1] - other.heading[1]) < 0.1)
+            same_lane_direction = (self.lane_direction == other.lane_direction)
+
+            if same_direction and same_lane_direction:
 
                 # Определяем полосу другой машины
                 if abs(self.heading[0]) > abs(self.heading[1]):
@@ -449,6 +531,9 @@ class Pedestrian:
         self.neon_color = tuple(min(255, c + 120) for c in color)
         self.size = size
         self.glow_pulse = random.uniform(0, math.pi * 2)
+        self.is_crossing = False  # Начал ли пешеход переход
+        self.reached_goal = False  # Достиг ли цели
+        self.should_disappear = False  # Нужно ли удалить
 
     def update(self, dt, controller):
         self.glow_pulse += dt * 4
@@ -457,14 +542,27 @@ class Pedestrian:
         road_half = (NUM_LANES * LANE_WIDTH) / 2
         on_intersection = (-road_half < self.pos[0] < road_half and -road_half < self.pos[1] < road_half)
 
-        if on_intersection or can_cross:
+        # Если пешеход начал переход, он должен закончить его на тротуаре
+        if self.is_crossing or (can_cross and not self.reached_goal):
+            if not self.is_crossing and can_cross:
+                self.is_crossing = True  # Начинаем переход
+
             dx = self.goal[0] - self.pos[0]
             dy = self.goal[1] - self.pos[1]
             dist = math.hypot(dx, dy)
+
             if dist > 1:
                 move_dist = self.speed * dt
                 self.pos[0] += move_dist * (dx / dist)
                 self.pos[1] += move_dist * (dy / dist)
+            else:
+                # Пешеход достиг цели (тротуара)
+                self.reached_goal = True
+                self.is_crossing = False
+
+                # С вероятностью 80% пешеход исчезает
+                if random.random() < 0.8:
+                    self.should_disappear = True
 
     def draw(self, screen):
         # Неоновое свечение
@@ -605,14 +703,23 @@ class TrafficSimulation:
         self.current_phase = self.controller.current_phase
         self.phase_time = self.controller.timer
 
-        # генерация машин
+        # Генерация машин с использованием таймера спавна
+        # Плотность λ (машин/10 секунд) преобразуется в интервал спавна: T = 10/λ секунд
+        # Каждое направление имеет свой независимый таймер
         for direction, density in self.controller.traffic_density.items():
-            if density > 0:
-                interval = 10.0 / density
+            if density > 0 and len(self.cars) < MAX_CARS:
+                # Интервал между спавнами: 1/λ * 10 секунд
+                # Например: λ=5 машин/10с → T=10/5=2 секунды между машинами
+                spawn_interval = 10.0 / density
+
+                # Обновляем таймер для этого направления
                 self.last_car_spawns[direction] += dt
-                if self.last_car_spawns[direction] > interval and len(self.cars) < MAX_CARS:
+
+                # Когда таймер достигает интервала - спавним машину
+                if self.last_car_spawns[direction] >= spawn_interval:
                     self.spawn_car(direction)
-                    self.last_car_spawns[direction] = 0
+                    # Сбрасываем таймер (учитываем переполнение для точности)
+                    self.last_car_spawns[direction] -= spawn_interval
 
         # пешеходы
         self.last_ped_spawn += dt
@@ -629,7 +736,15 @@ class TrafficSimulation:
         limit_x = (screen_config.sim_width / 2) + 100
         limit_y = (screen_config.sim_height / 2) + 100
         self.cars = [c for c in self.cars if -limit_x < c.pos[0] < limit_x and -limit_y < c.pos[1] < limit_y]
-        self.peds[:] = [p for p in self.peds if math.hypot(p.pos[0] - p.goal[0], p.pos[1] - p.goal[1]) > 5]
+
+        # Удаляем пешеходов:
+        # 1. Которые должны исчезнуть (80% после завершения перехода)
+        # 2. Которые вышли за границы экрана
+        # 3. Которые достигли цели и не исчезли (остальные 20%)
+        self.peds[:] = [p for p in self.peds 
+                       if not p.should_disappear 
+                       and (-limit_x < p.pos[0] < limit_x and -limit_y < p.pos[1] < limit_y)
+                       and not (p.reached_goal and math.hypot(p.pos[0] - p.goal[0], p.pos[1] - p.goal[1]) < 5)]
 
     def draw(self, screen):
         """Рисует все объекты симуляции."""

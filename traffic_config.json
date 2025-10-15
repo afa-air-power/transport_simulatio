@@ -1,35 +1,10 @@
 {
-  "mode": "static",
+  "mode": "dynamic",
   "phases": [
-    {
-      "duration": 30,
-      "horiz": "green",
-      "vert": "red"
-    },
-    {
-      "duration": 3,
-      "horiz": "yellow",
-      "vert": "red"
-    },
     {
       "duration": 2,
       "horiz": "red",
       "vert": "red"
-    },
-    {
-      "duration": 30,
-      "vert": "green",
-      "horiz": "red"
-    },
-    {
-      "duration": 3,
-      "vert": "yellow",
-      "horiz": "red"
-    },
-    {
-      "duration": 2,
-      "vert": "red",
-      "horiz": "red"
     }
   ],
   "min_phase_time": 5.0,
@@ -38,7 +13,10 @@
   "traffic_density": {
     "from_west": 5.0,
     "from_east": 5.0,
-    "from_north": 5.0,
+    "from_north": 0.0,
     "from_south": 5.0
-  }
+  },
+  "pressure_growth_rate": 0.5,
+  "pressure_decay_rate": 0.3,
+  "switch_threshold": 10.0
 }

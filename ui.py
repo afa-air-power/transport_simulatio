@@ -188,6 +188,7 @@ class UIManager:
         self.is_dragging_scrollbar = False
         self.drag_start_y = 0
         self.drag_start_scroll_y = 0
+        self.background_pulse = 0
         self.rebuild_ui_elements()
 
     def rebuild_ui_elements(self):
@@ -239,13 +240,13 @@ class UIManager:
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}", add_to_list=False))
             y = info_y + 30
 
-            self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), f"Фактор логики: {self.sim.controller.dynamic_logic_factor:.3f}")
+            self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), f"Фактор: {self.sim.controller.dynamic_logic_factor:.3f}")
             self.add_button((screen_config.width - UI_PANEL_WIDTH + 180, y - 2, 45, 20), "+", lambda: self.change_dynamic_factor(0.001))
             self.add_button((screen_config.width - UI_PANEL_WIDTH + 230, y - 2, 45, 20), "-", lambda: self.change_dynamic_factor(-0.001))
             y += 25
 
-        else: # static mode
-            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Текущая фаза: {self.sim.current_phase}", add_to_list=False))
+        else:
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Фаза: {self.sim.current_phase}", add_to_list=False))
             info_y += 25
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Время: {self.sim.phase_time:.1f}", add_to_list=False))
             info_y += 25
@@ -257,10 +258,10 @@ class UIManager:
             y = info_y + 20
 
         y += 20
-        self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), "Плотность трафика (машин/10 сек):")
+        self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), "Плотность (машин/10с):")
         y += 25
 
-        dir_map = {'from_north': 'С Севера', 'from_south': 'С Юга', 'from_west': 'С Запада', 'from_east': 'С Востока'}
+        dir_map = {'from_north': 'Север', 'from_south': 'Юг', 'from_west': 'Запад', 'from_east': 'Восток'}
         for direction, name in dir_map.items():
             density = self.sim.controller.traffic_density.get(direction, 0)
             self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), f"{name}: {density:.1f}")
@@ -312,7 +313,7 @@ class UIManager:
             max_scroll = max(0, self.total_phases_height - self.phases_viewport_rect.height)
             self.scroll_y = max(0, min(self.scroll_y, max_scroll))
 
-            self.add_button((screen_config.width - UI_PANEL_WIDTH + 50, self.phases_viewport_rect.bottom + 10, 200, 30), "Добавить фазу", self.add_new_phase)
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 50, self.phases_viewport_rect.bottom + 10, 200, 30), "Добавить", self.add_new_phase)
         else:
             self.phases_viewport_rect = None
             self.total_phases_height = 0
@@ -545,7 +546,7 @@ class UIManager:
         if self.ai_thread and self.ai_thread.is_alive():
             return  # Уже в процессе
 
-        self.ai_status_message = "Генерация..."
+        self.ai_status_message = "⟳ Генерация..."
         self.ai_status_timer = 0  # Чтобы сообщение "Генерация..." не исчезло по таймеру
         self.ai_thread_result = None
         self.rebuild_ui_elements()
@@ -563,7 +564,7 @@ class UIManager:
             with open("traffic_config.json", "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
         except Exception as e:
-            print(f"Ошибка экспорта: {e}")
+            print(f"Ошибка: {e}")
 
     def import_config(self):
         import json, os
@@ -573,4 +574,4 @@ class UIManager:
                 self.sim.controller.import_config_dict(json.load(f))
             self.rebuild_ui_elements()
         except Exception as e:
-            print(f"Ошибка импорта: {e}")
+            print(f"Ошибка: {e}")

@@ -324,6 +324,46 @@ class Car:
             return [dx / dist, dy / dist]
         return [1, 0]
 
+    def _get_current_lane_position(self):
+        """
+        Определяет позицию машины относительно полосы движения.
+        Возвращает координату поперек направления движения.
+        """
+        if abs(self.heading[0]) > abs(self.heading[1]):
+            # Горизонтальное движение - полоса определяется по Y
+            return self.pos[1]
+        else:
+            # Вертикальное движение - полоса определяется по X
+            return self.pos[0]
+
+    def _is_on_same_lane(self, other_car, tolerance=LANE_WIDTH * 0.6):
+        """
+        Проверяет, находятся ли две машины на одной полосе.
+
+        Args:
+            other_car: Другая машина для сравнения
+            tolerance: Допустимое отклонение (60% от ширины полосы)
+
+        Returns:
+            bool: True если машины на одной полосе
+        """
+        # Проверяем, что машины двигаются в похожем направлении
+        # (горизонтально или вертикально)
+        self_is_horizontal = abs(self.heading[0]) > abs(self.heading[1])
+        other_is_horizontal = abs(other_car.heading[0]) > abs(other_car.heading[1])
+
+        if self_is_horizontal != other_is_horizontal:
+            return False  # Машины на разных дорогах
+
+        # Получаем позиции машин относительно полос
+        my_lane_pos = self._get_current_lane_position()
+        other_lane_pos = other_car._get_current_lane_position()
+
+        # Проверяем, что машины на одной полосе (в пределах допуска)
+        lane_diff = abs(my_lane_pos - other_lane_pos)
+
+        return lane_diff < tolerance
+
     def _move_towards_waypoint(self, dt, speed):
         """Двигается к текущему waypoint с проверкой стоп-линии."""
         if self.current_waypoint_index >= len(self.waypoints):
@@ -479,7 +519,7 @@ class Car:
                 return self.pos[1] - road_half
 
     def _find_car_ahead(self, all_cars):
-        """Находит ближайшую машину впереди на том же пути."""
+        """Находит ближайшую машину впереди на той же полосе движения."""
         min_dist = float('inf')
         car_ahead = None
 
@@ -487,34 +527,34 @@ class Car:
             if other is self:
                 continue
 
-            # Проверяем, едет ли примерно в том же направлении
-            dot_product = self.heading[0] * other.heading[0] + self.heading[1] * other.heading[1]
-            if dot_product < 0.5:  # Более мягкий критерий для учета поворачивающих машин
+            # КРИТЕРИЙ 1: Проверяем, что машины на одной полосе
+            if not self._is_on_same_lane(other):
                 continue
 
-            # Вычисляем расстояние от центра до центра
+            # КРИТЕРИЙ 2: Проверяем, едет ли примерно в том же направлении
+            dot_product = self.heading[0] * other.heading[0] + self.heading[1] * other.heading[1]
+            if dot_product < 0.5:  # Машины движутся в разных направлениях
+                continue
+
+            # КРИТЕРИЙ 3: Вычисляем расстояние от центра до центра
             dx = other.pos[0] - self.pos[0]
             dy = other.pos[1] - self.pos[1]
             dist_center_to_center = math.hypot(dx, dy)
 
-            # Машина должна быть впереди (строго в направлении движения)
+            # КРИТЕРИЙ 4: Машина должна быть впереди (в направлении движения)
             forward_dot = dx * self.heading[0] + dy * self.heading[1]
 
-            # Проверяем, что машина на нашей полосе или близко к ней
-            # Поперечное смещение не должно быть слишком большим
-            lateral_offset = abs(dx * self.heading[1] - dy * self.heading[0])
-
-            if forward_dot > 0 and lateral_offset < LANE_WIDTH * 1.5:
+            if forward_dot > 0:
                 # Вычисляем реальное расстояние с учетом длины машин
                 # Расстояние от переда нашей машины до задней части машины впереди
-                our_half_length = (self.length * 2.5) / 2  # Половина длины нашей машины
-                other_half_length = (other.length * 2.5) / 2  # Половина длины машины впереди
+                our_half_length = (self.length * 2.5) / 2
+                other_half_length = (other.length * 2.5) / 2
 
                 # Реальное расстояние между бамперами
                 real_distance = dist_center_to_center - our_half_length - other_half_length
 
                 if real_distance < min_dist:
-                    min_dist = max(0, real_distance)  # Не может быть отрицательным
+                    min_dist = max(0, real_distance)
                     car_ahead = other
 
         return car_ahead, min_dist

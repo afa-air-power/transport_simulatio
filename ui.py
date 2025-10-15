@@ -9,19 +9,65 @@ class Button:
         self.rect = pygame.Rect(rect)
         self.text = text
         self.callback = callback
-        self.color = (100, 100, 100)
-        self.hover_color = (150, 150, 150)
+        # Неоновые цвета вместо серых
+        self.base_neon = (0, 200, 255)  # Голубой неон
+        self.hover_neon = (255, 0, 200)  # Розовый неон
+        self.bg_color = (10, 10, 30)  # Темный фон
         self.text_color = (255, 255, 255)
         self.is_hovered = False
+        self.glow_pulse = 0
 
     def draw(self, screen, font):
-        color = self.hover_color if self.is_hovered else self.color
-        pygame.draw.rect(screen, color, self.rect, border_radius=6)
-        pygame.draw.rect(screen, (255, 255, 255), self.rect, 2, border_radius=6)
+        import math
 
-        text_surface = font.render(self.text, True, self.text_color)
-        text_rect = text_surface.get_rect(center=self.rect.center)
+        # Выбираем цвет на основе hover
+        neon_color = self.hover_neon if self.is_hovered else self.base_neon
+
+        # Пульсирующее свечение
+        pulse = abs(math.sin(self.glow_pulse))
+        glow_intensity = 0.5 + pulse * 0.5
+
+        # Рисуем внешнее свечение (несколько слоев)
+        for i in range(8, 0, -1):
+            alpha = int(30 * glow_intensity * (1 - i / 8))
+            glow_surf = pygame.Surface((self.rect.width + i * 4, self.rect.height + i * 4), pygame.SRCALPHA)
+            glow_rect = pygame.Rect(0, 0, self.rect.width + i * 4, self.rect.height + i * 4)
+            pygame.draw.rect(glow_surf, (*neon_color, alpha), glow_rect, border_radius=8)
+            screen.blit(glow_surf, (self.rect.x - i * 2, self.rect.y - i * 2))
+
+        # Основной фон кнопки (темный)
+        pygame.draw.rect(screen, self.bg_color, self.rect, border_radius=6)
+
+        # Градиент внутри кнопки
+        gradient_surf = pygame.Surface((self.rect.width, self.rect.height), pygame.SRCALPHA)
+        for y in range(self.rect.height):
+            alpha = int(50 * (1 - y / self.rect.height))
+            pygame.draw.line(gradient_surf, (*neon_color, alpha), (0, y), (self.rect.width, y))
+        screen.blit(gradient_surf, self.rect.topleft)
+
+        # Неоновая окантовка (3 слоя для толщины)
+        for thickness in [3, 2, 1]:
+            alpha = int(255 * glow_intensity) if thickness == 1 else 180
+            pygame.draw.rect(screen, (*neon_color, alpha), self.rect, thickness, border_radius=6)
+
+        # Яркий контрастный текст
+        # Сначала темная тень для глубины
+        text_shadow = font.render(self.text, True, (0, 0, 0))
+        text_rect = text_shadow.get_rect(center=self.rect.center)
+        for offset in [(2, 2), (1, 2), (2, 1)]:
+            screen.blit(text_shadow, (text_rect.x + offset[0], text_rect.y + offset[1]))
+
+        # Затем яркое неоновое свечение
+        text_glow = font.render(self.text, True, neon_color)
+        for offset in [(0, 1), (1, 0), (0, -1), (-1, 0), (1, 1), (-1, -1), (1, -1), (-1, 1)]:
+            screen.blit(text_glow, (text_rect.x + offset[0], text_rect.y + offset[1]))
+
+        # И белый текст сверху для максимальной читаемости
+        text_surface = font.render(self.text, True, (255, 255, 255))
         screen.blit(text_surface, text_rect)
+
+        # Обновляем пульсацию
+        self.glow_pulse += 0.05
 
     def check_hover(self, pos):
         self.is_hovered = self.rect.collidepoint(pos)
@@ -38,11 +84,14 @@ class TextInput:
         self.rect = pygame.Rect(rect)
         self.text = text
         self.active = False
-        self.color_inactive = (80, 80, 80)
-        self.color_active = (120, 120, 120)
+        # Неоновые цвета
+        self.neon_inactive = (100, 200, 255)  # Голубой
+        self.neon_active = (0, 255, 150)  # Зеленый
+        self.bg_color = (10, 10, 30)
         self.text_color = (255, 255, 255)
         self.cursor_timer = 0
         self.cursor_visible = True
+        self.glow_pulse = 0
 
     def get_text(self):
         return self.text
@@ -76,11 +125,35 @@ class TextInput:
                 self.cursor_visible = not self.cursor_visible
 
     def draw(self, screen, font):
-        color = self.color_active if self.active else self.color_inactive
-        pygame.draw.rect(screen, color, self.rect, border_radius=6)
-        pygame.draw.rect(screen, (255, 255, 255), self.rect, 2, border_radius=6)
+        import math
 
-        text_surface = font.render(self.text, True, self.text_color)
+        neon_color = self.neon_active if self.active else self.neon_inactive
+        pulse = abs(math.sin(self.glow_pulse))
+        glow_intensity = 0.6 + pulse * 0.4
+
+        # Внешнее свечение (если активно - ярче)
+        glow_size = 6 if self.active else 4
+        for i in range(glow_size, 0, -1):
+            alpha = int(40 * glow_intensity * (1 - i / glow_size)) if self.active else int(20 * (1 - i / glow_size))
+            glow_surf = pygame.Surface((self.rect.width + i * 3, self.rect.height + i * 3), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*neon_color, alpha), 
+                           pygame.Rect(0, 0, self.rect.width + i * 3, self.rect.height + i * 3), 
+                           border_radius=7)
+            screen.blit(glow_surf, (self.rect.x - i * 1.5, self.rect.y - i * 1.5))
+
+        # Темный фон
+        pygame.draw.rect(screen, self.bg_color, self.rect, border_radius=6)
+
+        # Неоновая окантовка
+        border_thickness = 2 if self.active else 1
+        for thickness in range(border_thickness, 0, -1):
+            alpha = 255 if thickness == 1 else 150
+            pygame.draw.rect(screen, (*neon_color, alpha), self.rect, thickness + 1, border_radius=6)
+
+        # Яркий контрастный текст с тенью
+        text_shadow = font.render(self.text, True, (0, 0, 0))
+        text_glow = font.render(self.text, True, neon_color)
+        text_surface = font.render(self.text, True, (255, 255, 255))
 
         # Обрезка текста, если он не помещается
         max_width = self.rect.width - 15
@@ -89,12 +162,37 @@ class TextInput:
         else:
             x_pos = self.rect.x + 5
 
-        screen.blit(text_surface, (x_pos, self.rect.y + 7))
+        y_pos = self.rect.y + 7
+
+        # Тень
+        screen.blit(text_shadow, (x_pos + 1, y_pos + 1))
+        # Неоновое свечение
+        for offset in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            screen.blit(text_glow, (x_pos + offset[0], y_pos + offset[1]))
+        # Белый текст
+        screen.blit(text_surface, (x_pos, y_pos))
 
         if self.active and self.cursor_visible:
             cursor_pos_x = self.rect.x + 5 + text_surface.get_width()
             if cursor_pos_x < self.rect.right - 5:
-                 pygame.draw.line(screen, self.text_color, (cursor_pos_x, self.rect.y + 7), (cursor_pos_x, self.rect.y + self.rect.height - 7), 1)
+                # Яркий неоновый курсор с свечением
+                # Свечение курсора
+                for i in range(3, 0, -1):
+                    pygame.draw.line(screen, (*neon_color, 80), 
+                                   (cursor_pos_x - i, self.rect.y + 7), 
+                                   (cursor_pos_x - i, self.rect.y + self.rect.height - 7), 1)
+                    pygame.draw.line(screen, (*neon_color, 80), 
+                                   (cursor_pos_x + i, self.rect.y + 7), 
+                                   (cursor_pos_x + i, self.rect.y + self.rect.height - 7), 1)
+                # Основной курсор
+                pygame.draw.line(screen, neon_color, 
+                               (cursor_pos_x, self.rect.y + 7), 
+                               (cursor_pos_x, self.rect.y + self.rect.height - 7), 3)
+                pygame.draw.line(screen, (255, 255, 255), 
+                               (cursor_pos_x, self.rect.y + 7), 
+                               (cursor_pos_x, self.rect.y + self.rect.height - 7), 1)
+
+        self.glow_pulse += 0.08
 
 
 
@@ -106,18 +204,52 @@ class Dropdown:
         self.label = label
         self.callback = callback
         self.is_open = False
-        self.color = (80, 80, 80)
-        self.hover_color = (120, 120, 120)
+        # Неоновые цвета
+        self.neon_base = (150, 100, 255)  # Фиолетовый
+        self.neon_hover = (255, 150, 0)  # Оранжевый
+        self.neon_selected = (0, 255, 200)  # Бирюзовый
+        self.bg_color = (10, 10, 30)
         self.open_height = self.rect.height * len(self.options)
+        self.glow_pulse = 0
 
     def draw(self, screen, font):
-        color = self.hover_color if self.is_open else self.color
-        pygame.draw.rect(screen, color, self.rect, border_radius=6)
-        pygame.draw.rect(screen, (255, 255, 255), self.rect, 2, border_radius=6)
+        import math
+
+        neon_color = self.neon_hover if self.is_open else self.neon_base
+        pulse = abs(math.sin(self.glow_pulse))
+        glow_intensity = 0.5 + pulse * 0.5
+
+        # Свечение главной кнопки
+        for i in range(6, 0, -1):
+            alpha = int(35 * glow_intensity * (1 - i / 6))
+            glow_surf = pygame.Surface((self.rect.width + i * 3, self.rect.height + i * 3), pygame.SRCALPHA)
+            pygame.draw.rect(glow_surf, (*neon_color, alpha), 
+                           pygame.Rect(0, 0, self.rect.width + i * 3, self.rect.height + i * 3), 
+                           border_radius=7)
+            screen.blit(glow_surf, (self.rect.x - i * 1.5, self.rect.y - i * 1.5))
+
+        # Темный фон
+        pygame.draw.rect(screen, self.bg_color, self.rect, border_radius=6)
+
+        # Неоновая окантовка
+        for thickness in [2, 1]:
+            alpha = 255 if thickness == 1 else 180
+            pygame.draw.rect(screen, (*neon_color, alpha), self.rect, thickness, border_radius=6)
 
         text = f"{self.label}: {self.options[self.selected_index]}"
+
+        # Яркий контрастный текст
+        text_shadow = font.render(text, True, (0, 0, 0))
+        text_glow = font.render(text, True, neon_color)
         text_surface = font.render(text, True, (255, 255, 255))
         text_rect = text_surface.get_rect(center=self.rect.center)
+
+        # Тень
+        screen.blit(text_shadow, (text_rect.x + 1, text_rect.y + 1))
+        # Свечение
+        for offset in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+            screen.blit(text_glow, (text_rect.x + offset[0], text_rect.y + offset[1]))
+        # Белый текст
         screen.blit(text_surface, text_rect)
 
         if self.is_open:
@@ -128,13 +260,44 @@ class Dropdown:
                     self.rect.width,
                     self.rect.height
                 )
-                option_color = (100, 100, 150) if i == self.selected_index else self.color
-                pygame.draw.rect(screen, option_color, option_rect, border_radius=4)
-                pygame.draw.rect(screen, (255, 255, 255), option_rect, 1, border_radius=4)
 
+                # Определяем цвет опции
+                if i == self.selected_index:
+                    option_neon = self.neon_selected
+                else:
+                    option_neon = self.neon_base
+
+                # Свечение для каждой опции
+                for j in range(4, 0, -1):
+                    alpha = int(25 * (1 - j / 4))
+                    glow_surf = pygame.Surface((option_rect.width + j * 2, option_rect.height + j * 2), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_surf, (*option_neon, alpha), 
+                                   pygame.Rect(0, 0, option_rect.width + j * 2, option_rect.height + j * 2), 
+                                   border_radius=5)
+                    screen.blit(glow_surf, (option_rect.x - j, option_rect.y - j))
+
+                # Фон опции
+                pygame.draw.rect(screen, self.bg_color, option_rect, border_radius=4)
+
+                # Окантовка опции
+                pygame.draw.rect(screen, (*option_neon, 200), option_rect, 2, border_radius=4)
+                pygame.draw.rect(screen, (*option_neon, 100), option_rect, 1, border_radius=4)
+
+                # Яркий контрастный текст опции
+                option_shadow = font.render(option, True, (0, 0, 0))
+                option_glow = font.render(option, True, option_neon)
                 option_text = font.render(option, True, (255, 255, 255))
                 option_text_rect = option_text.get_rect(center=option_rect.center)
+
+                # Тень
+                screen.blit(option_shadow, (option_text_rect.x + 1, option_text_rect.y + 1))
+                # Свечение
+                for offset in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+                    screen.blit(option_glow, (option_text_rect.x + offset[0], option_text_rect.y + offset[1]))
+                # Белый текст
                 screen.blit(option_text, option_text_rect)
+
+        self.glow_pulse += 0.06
 
     def handle_event(self, event):
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -345,7 +508,26 @@ class UIManager:
         return text_element
 
     def draw(self, screen, font):
-        pygame.draw.rect(screen, (50, 50, 50), self.panel_rect)
+        import math
+
+        # Неоновый пульсирующий фон панели
+        self.background_pulse += 0.03
+        pulse = abs(math.sin(self.background_pulse))
+
+        # Темный фон с градиентом
+        bg_surf = pygame.Surface((self.panel_rect.width, self.panel_rect.height), pygame.SRCALPHA)
+        for y in range(self.panel_rect.height):
+            alpha = int(200 + 30 * pulse * (1 - y / self.panel_rect.height))
+            color_val = int(15 + 10 * pulse)
+            pygame.draw.line(bg_surf, (color_val, color_val, color_val + 20, alpha), 
+                           (0, y), (self.panel_rect.width, y))
+        screen.blit(bg_surf, self.panel_rect.topleft)
+
+        # Неоновая окантовка панели
+        neon_border = (0, 200, 255)
+        for i in range(3, 0, -1):
+            alpha = int(100 + 100 * pulse) if i == 1 else 80
+            pygame.draw.rect(screen, (*neon_border, alpha), self.panel_rect, i)
 
         # --- Element Segregation ---
         non_scrollable_elements = []
@@ -376,32 +558,77 @@ class UIManager:
             if hasattr(element, 'draw'):
                 element.draw(screen, self.font)
             elif isinstance(element, dict) and element.get('type') == 'text':
-                screen.blit(self.font.render(element['text'], True, (255, 255, 255)), element['pos'])
+                # Яркий контрастный текст
+                neon_text_color = (0, 220, 255)
+                text_shadow = self.font.render(element['text'], True, (0, 0, 0))
+                text_glow = self.font.render(element['text'], True, neon_text_color)
+                text_surface = self.font.render(element['text'], True, (255, 255, 255))
+
+                # Тень для глубины
+                screen.blit(text_shadow, (element['pos'][0] + 1, element['pos'][1] + 1))
+                # Яркое неоновое свечение
+                for offset in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1)]:
+                    screen.blit(text_glow, (element['pos'][0] + offset[0], element['pos'][1] + offset[1]))
+                # Белый текст сверху
+                screen.blit(text_surface, element['pos'])
 
         # 2. Draw scrollable elements with clipping
         if self.phases_viewport_rect:
             screen.set_clip(self.phases_viewport_rect)
 
-            # Draw highlight rects first (background)
+            # Draw highlight rects first (background) с неоновым эффектом
             for element in scrollable_elements:
                  if isinstance(element, dict) and element.get('type') == 'rect':
-                    pygame.draw.rect(screen, element['color'], element['rect'], border_radius=4)
+                    import math
+                    # Неоновая подсветка текущей фазы
+                    pulse = abs(math.sin(self.background_pulse * 2))
+                    neon_highlight = (100, 200, 255)
+
+                    # Свечение
+                    for i in range(6, 0, -1):
+                        alpha = int(30 * pulse * (1 - i / 6))
+                        glow_rect = element['rect'].inflate(i * 2, i * 2)
+                        glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                        pygame.draw.rect(glow_surf, (*neon_highlight, alpha), 
+                                       pygame.Rect(0, 0, glow_rect.width, glow_rect.height), 
+                                       border_radius=6)
+                        screen.blit(glow_surf, glow_rect.topleft)
+
+                    # Темный фон с неоновой окантовкой
+                    pygame.draw.rect(screen, (20, 20, 40), element['rect'], border_radius=4)
+                    pygame.draw.rect(screen, (*neon_highlight, int(150 + 100 * pulse)), element['rect'], 2, border_radius=4)
 
             # Draw other scrollable elements on top
             for element in scrollable_elements:
                 if isinstance(element, (Button, Dropdown)):
                     element.draw(screen, self.font)
                 elif isinstance(element, dict) and element.get('type') == 'text':
-                    screen.blit(self.font.render(element['text'], True, (255, 255, 255)), element['pos'])
+                    # Яркий контрастный текст
+                    neon_text_color = (0, 220, 255)
+                    text_shadow = self.font.render(element['text'], True, (0, 0, 0))
+                    text_glow = self.font.render(element['text'], True, neon_text_color)
+                    text_surface = self.font.render(element['text'], True, (255, 255, 255))
+
+                    # Тень для глубины
+                    screen.blit(text_shadow, (element['pos'][0] + 1, element['pos'][1] + 1))
+                    # Яркое неоновое свечение
+                    for offset in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1)]:
+                        screen.blit(text_glow, (element['pos'][0] + offset[0], element['pos'][1] + offset[1]))
+                    # Белый текст сверху
+                    screen.blit(text_surface, element['pos'])
 
             screen.set_clip(original_clip)
 
-        # 3. Draw panel border and scrollbar on top
-        pygame.draw.rect(screen, (255, 255, 255), self.panel_rect, 2)
+        # 3. Draw panel border and scrollbar on top (уже не нужна белая граница, есть неоновая)
 
         if self.phases_viewport_rect and self.total_phases_height > self.phases_viewport_rect.height:
+            import math
+            pulse = abs(math.sin(self.background_pulse))
+
             self.scrollbar_track_rect = pygame.Rect(self.phases_viewport_rect.right - 12, self.phases_viewport_rect.top, 10, self.phases_viewport_rect.height)
-            pygame.draw.rect(screen, (40, 40, 40), self.scrollbar_track_rect, border_radius=5)
+            # Темный трек с неоновой окантовкой
+            pygame.draw.rect(screen, (15, 15, 30), self.scrollbar_track_rect, border_radius=5)
+            pygame.draw.rect(screen, (0, 150, 200, 100), self.scrollbar_track_rect, 1, border_radius=5)
 
             viewable_ratio = self.phases_viewport_rect.height / self.total_phases_height
             thumb_h = max(20, self.phases_viewport_rect.height * viewable_ratio)
@@ -412,7 +639,20 @@ class UIManager:
             thumb_y = self.scrollbar_track_rect.top + scroll_ratio * (self.scrollbar_track_rect.height - thumb_h)
 
             self.scrollbar_thumb_rect = pygame.Rect(self.scrollbar_track_rect.x + 1, thumb_y, 8, thumb_h)
-            pygame.draw.rect(screen, (150, 150, 150), self.scrollbar_thumb_rect, border_radius=4)
+
+            # Неоновый ползунок с свечением
+            neon_scrollbar = (0, 255, 200)
+            for i in range(3, 0, -1):
+                alpha = int(60 * (1 - i / 3))
+                glow_rect = self.scrollbar_thumb_rect.inflate(i * 2, 0)
+                glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (*neon_scrollbar, alpha), 
+                               pygame.Rect(0, 0, glow_rect.width, glow_rect.height), 
+                               border_radius=5)
+                screen.blit(glow_surf, glow_rect.topleft)
+
+            pygame.draw.rect(screen, neon_scrollbar, self.scrollbar_thumb_rect, border_radius=4)
+            pygame.draw.rect(screen, (150, 255, 255), self.scrollbar_thumb_rect, 1, border_radius=4)
 
     def handle_events(self, event):
         if self.panel_rect.collidepoint(pygame.mouse.get_pos()):

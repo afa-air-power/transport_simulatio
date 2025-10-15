@@ -28,112 +28,123 @@ class PathGenerator:
         road_half = (NUM_LANES * LANE_WIDTH) / 2
         entry_dist = 500  # Дистанция появления
 
-        # Рассчитываем смещение для полосы
-        # Для 2 полос в каждом направлении (NUM_LANES=4)
-        # lane 0: первая полоса направления
-        # lane 1: вторая полоса направления
-        lane_offset = -road_half + (lane + 0.5) * LANE_WIDTH
+        # Для 4 полос (NUM_LANES=4):
+        # Полосы 0,1 - движение в одном направлении (входящие)
+        # Полосы 2,3 - движение в противоположном (исходящие)
+
+        # Входящая полоса (к центру перекрёстка)
+        entry_lane_offset = -road_half + (lane + 0.5) * LANE_WIDTH
 
         waypoints = []
 
         if from_direction == 'from_west':
-            # Движение слева направо (на восток)
-            waypoints.append((-entry_dist, lane_offset))
-            waypoints.append((-road_half - 20, lane_offset))
+            # Движение слева направо (на восток), входящие полосы внизу
+            waypoints.append((-entry_dist, entry_lane_offset))
+            waypoints.append((-road_half - 20, entry_lane_offset))
 
             if turn_direction == 'straight':
-                waypoints.append((road_half + 20, lane_offset))
-                waypoints.append((entry_dist, lane_offset))
+                # Прямо - остаёмся на той же полосе
+                waypoints.append((road_half + 20, entry_lane_offset))
+                waypoints.append((entry_dist, entry_lane_offset))
 
             elif turn_direction == 'left':
-                # Поворот налево (на север, вверх)
-                waypoints.append((-10, lane_offset))
+                # Поворот налево (на север, вверх) - выезжаем на исходящие полосы севера
+                exit_lane_offset = road_half - (lane + 0.5) * LANE_WIDTH  # Исходящие полосы севера
+                waypoints.append((-10, entry_lane_offset))
                 waypoints.append((0, 0))
-                waypoints.append((lane_offset, -10))
-                waypoints.append((lane_offset, -road_half - 20))
-                waypoints.append((lane_offset, -entry_dist))
+                waypoints.append((exit_lane_offset, -10))
+                waypoints.append((exit_lane_offset, -road_half - 20))
+                waypoints.append((exit_lane_offset, -entry_dist))
 
             elif turn_direction == 'right':
-                # Поворот направо (на юг, вниз)
-                waypoints.append((-10, lane_offset))
+                # Поворот направо (на юг, вниз) - выезжаем на исходящие полосы юга
+                exit_lane_offset = -road_half + (lane + 0.5) * LANE_WIDTH  # Исходящие полосы юга
+                waypoints.append((-10, entry_lane_offset))
                 waypoints.append((0, road_half / 2))
-                waypoints.append((-lane_offset, road_half + 10))
-                waypoints.append((-lane_offset, entry_dist))
+                waypoints.append((exit_lane_offset, road_half + 10))
+                waypoints.append((exit_lane_offset, entry_dist))
 
         elif from_direction == 'from_east':
-            # Движение справа налево (на запад)
-            # Используем противоположные полосы
-            opposite_lane_offset = road_half - (lane + 0.5) * LANE_WIDTH
-            waypoints.append((entry_dist, opposite_lane_offset))
-            waypoints.append((road_half + 20, opposite_lane_offset))
+            # Движение справа налево (на запад), входящие полосы вверху
+            entry_lane_offset = road_half - (lane + 0.5) * LANE_WIDTH
+            waypoints.append((entry_dist, entry_lane_offset))
+            waypoints.append((road_half + 20, entry_lane_offset))
 
             if turn_direction == 'straight':
-                waypoints.append((-road_half - 20, opposite_lane_offset))
-                waypoints.append((-entry_dist, opposite_lane_offset))
+                waypoints.append((-road_half - 20, entry_lane_offset))
+                waypoints.append((-entry_dist, entry_lane_offset))
 
             elif turn_direction == 'left':
-                # Поворот налево (на юг, вниз)
-                waypoints.append((10, opposite_lane_offset))
+                # Поворот налево (на юг, вниз) - выезжаем на исходящие полосы юга
+                exit_lane_offset = -road_half + (lane + 0.5) * LANE_WIDTH
+                waypoints.append((10, entry_lane_offset))
                 waypoints.append((0, road_half / 2))
-                waypoints.append((-opposite_lane_offset, road_half + 10))
-                waypoints.append((-opposite_lane_offset, entry_dist))
+                waypoints.append((exit_lane_offset, road_half + 10))
+                waypoints.append((exit_lane_offset, entry_dist))
 
             elif turn_direction == 'right':
-                # Поворот направо (на север, вверх)
-                waypoints.append((10, opposite_lane_offset))
+                # Поворот направо (на север, вверх) - выезжаем на исходящие полосы севера
+                exit_lane_offset = road_half - (lane + 0.5) * LANE_WIDTH
+                waypoints.append((10, entry_lane_offset))
                 waypoints.append((0, 0))
-                waypoints.append((opposite_lane_offset, -10))
-                waypoints.append((opposite_lane_offset, -entry_dist))
+                waypoints.append((exit_lane_offset, -10))
+                waypoints.append((exit_lane_offset, -road_half - 20))
+                waypoints.append((exit_lane_offset, -entry_dist))
 
         elif from_direction == 'from_north':
-            # Движение сверху вниз (на юг)
-            waypoints.append((lane_offset, -entry_dist))
-            waypoints.append((lane_offset, -road_half - 20))
+            # Движение сверху вниз (на юг), входящие полосы справа
+            entry_lane_offset = road_half - (lane + 0.5) * LANE_WIDTH
+            waypoints.append((entry_lane_offset, -entry_dist))
+            waypoints.append((entry_lane_offset, -road_half - 20))
 
             if turn_direction == 'straight':
-                waypoints.append((lane_offset, road_half + 20))
-                waypoints.append((lane_offset, entry_dist))
+                waypoints.append((entry_lane_offset, road_half + 20))
+                waypoints.append((entry_lane_offset, entry_dist))
 
             elif turn_direction == 'left':
-                # Поворот налево (на восток, направо)
-                waypoints.append((lane_offset, -10))
+                # Поворот налево (на восток, направо) - выезжаем на исходящие полосы востока
+                exit_lane_offset = road_half - (lane + 0.5) * LANE_WIDTH
+                waypoints.append((entry_lane_offset, -10))
                 waypoints.append((0, 0))
-                waypoints.append((10, -lane_offset))
-                waypoints.append((road_half + 10, -lane_offset))
-                waypoints.append((entry_dist, -lane_offset))
+                waypoints.append((10, exit_lane_offset))
+                waypoints.append((road_half + 20, exit_lane_offset))
+                waypoints.append((entry_dist, exit_lane_offset))
 
             elif turn_direction == 'right':
-                # Поворот направо (на запад, налево)
-                waypoints.append((lane_offset, -10))
+                # Поворот направо (на запад, налево) - выезжаем на исходящие полосы запада
+                exit_lane_offset = -road_half + (lane + 0.5) * LANE_WIDTH
+                waypoints.append((entry_lane_offset, -10))
                 waypoints.append((0, 0))
-                waypoints.append((-10, lane_offset))
-                waypoints.append((-road_half - 10, lane_offset))
-                waypoints.append((-entry_dist, lane_offset))
+                waypoints.append((-10, exit_lane_offset))
+                waypoints.append((-road_half - 20, exit_lane_offset))
+                waypoints.append((-entry_dist, exit_lane_offset))
 
         elif from_direction == 'from_south':
-            # Движение снизу вверх (на север)
-            opposite_lane_offset = road_half - (lane + 0.5) * LANE_WIDTH
-            waypoints.append((opposite_lane_offset, entry_dist))
-            waypoints.append((opposite_lane_offset, road_half + 20))
+            # Движение снизу вверх (на север), входящие полосы слева
+            entry_lane_offset = -road_half + (lane + 0.5) * LANE_WIDTH
+            waypoints.append((entry_lane_offset, entry_dist))
+            waypoints.append((entry_lane_offset, road_half + 20))
 
             if turn_direction == 'straight':
-                waypoints.append((opposite_lane_offset, -road_half - 20))
-                waypoints.append((opposite_lane_offset, -entry_dist))
+                waypoints.append((entry_lane_offset, -road_half - 20))
+                waypoints.append((entry_lane_offset, -entry_dist))
 
             elif turn_direction == 'left':
-                # Поворот налево (на запад, налево)
-                waypoints.append((opposite_lane_offset, 10))
+                # Поворот налево (на запад, налево) - выезжаем на исходящие полосы запада
+                exit_lane_offset = -road_half + (lane + 0.5) * LANE_WIDTH
+                waypoints.append((entry_lane_offset, 10))
                 waypoints.append((0, 0))
-                waypoints.append((-10, -opposite_lane_offset))
-                waypoints.append((-road_half - 10, -opposite_lane_offset))
-                waypoints.append((-entry_dist, -opposite_lane_offset))
+                waypoints.append((-10, exit_lane_offset))
+                waypoints.append((-road_half - 20, exit_lane_offset))
+                waypoints.append((-entry_dist, exit_lane_offset))
 
             elif turn_direction == 'right':
-                # Поворот направо (на восток, направо)
-                waypoints.append((opposite_lane_offset, 10))
+                # Поворот направо (на восток, направо) - выезжаем на исходящие полосы востока
+                exit_lane_offset = road_half - (lane + 0.5) * LANE_WIDTH
+                waypoints.append((entry_lane_offset, 10))
                 waypoints.append((road_half / 2, 0))
-                waypoints.append((road_half + 10, opposite_lane_offset))
-                waypoints.append((entry_dist, opposite_lane_offset))
+                waypoints.append((road_half + 10, exit_lane_offset))
+                waypoints.append((entry_dist, exit_lane_offset))
 
         return waypoints
 

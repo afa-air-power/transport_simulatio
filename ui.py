@@ -929,7 +929,7 @@ class UIManager:
     def change_traffic_density(self, direction, delta):
         """Изменяет плотность трафика (машин/10 сек) для заданного направления."""
         current_density = self.sim.controller.traffic_density[direction]
-        new_density = max(0.0, current_density + delta) # Плотность может быть 0
+        new_density = min(max(0.0, current_density + delta), 5) # Плотность может быть 0
         self.sim.controller.traffic_density[direction] = round(new_density, 1)
         self.rebuild_ui_elements()
 

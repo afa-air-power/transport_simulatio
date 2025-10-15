@@ -553,8 +553,10 @@ class Car:
                 # Реальное расстояние между бамперами
                 real_distance = dist_center_to_center - our_half_length - other_half_length
 
-                if real_distance < min_dist:
-                    min_dist = max(0, real_distance)
+                # Игнорируем машины, которые мы уже проехали или которые слишком близко
+                # (отрицательное расстояние означает, что машины проехали друг друга)
+                if real_distance > 2 and real_distance < min_dist:
+                    min_dist = real_distance
                     car_ahead = other
 
         return car_ahead, min_dist
@@ -1056,6 +1058,58 @@ class TrafficSimulation:
     def toggle_pause(self):
         self.paused = not self.paused
 
+    def can_spawn_car(self, direction):
+        """
+        Проверяет, можно ли заспавнить машину в данном направлении.
+        Возвращает False если в зоне спавна уже есть машина (пробка).
+        """
+        road_half = (NUM_LANES * LANE_WIDTH) / 2
+        spawn_check_distance = 200  # Расстояние от края для проверки
+
+        # Определяем зону спавна для каждого направления
+        if direction == 'from_west':
+            # Проверяем зону слева от экрана
+            spawn_zone_start = -50
+            spawn_zone_end = -road_half - spawn_check_distance
+
+            for car in self.cars:
+                # Только машины, движущиеся на восток
+                if car.from_direction == 'from_west':
+                    if spawn_zone_start < car.pos[0] < spawn_zone_end:
+                        return False
+
+        elif direction == 'from_east':
+            # Проверяем зону справа от экрана
+            spawn_zone_start = road_half + spawn_check_distance
+            spawn_zone_end = 50
+
+            for car in self.cars:
+                if car.from_direction == 'from_east':
+                    if spawn_zone_start < car.pos[0] < spawn_zone_end:
+                        return False
+
+        elif direction == 'from_north':
+            # Проверяем зону сверху экрана
+            spawn_zone_start = -50
+            spawn_zone_end = -road_half - spawn_check_distance
+
+            for car in self.cars:
+                if car.from_direction == 'from_north':
+                    if spawn_zone_start < car.pos[1] < spawn_zone_end:
+                        return False
+
+        elif direction == 'from_south':
+            # Проверяем зону снизу экрана
+            spawn_zone_start = road_half + spawn_check_distance
+            spawn_zone_end = 50
+
+            for car in self.cars:
+                if car.from_direction == 'from_south':
+                    if spawn_zone_start < car.pos[1] < spawn_zone_end:
+                        return False
+
+        return True
+
     def spawn_car(self, direction):
         """Создает машину с waypoint-based маршрутом."""
         # Выбираем случайную полосу (0 или 1 для каждого направления)
@@ -1146,11 +1200,21 @@ class TrafficSimulation:
         # генерация машин
         for direction, density in self.controller.traffic_density.items():
             if density > 0:
+                # Интервал между спавнами: 10 секунд делим на плотность
+                # Например: density=5 -> интервал=2 секунды (5 машин за 10 сек)
                 interval = 10.0 / density
                 self.last_car_spawns[direction] += dt
-                if self.last_car_spawns[direction] > interval and len(self.cars) < MAX_CARS:
-                    self.spawn_car(direction)
-                    self.last_car_spawns[direction] = 0
+
+                # Пытаемся заспавнить машину
+                if self.last_car_spawns[direction] >= interval and len(self.cars) < MAX_CARS:
+                    # Проверяем, можно ли заспавнить машину (нет машины в точке спавна)
+                    if self.can_spawn_car(direction):
+                        self.spawn_car(direction)
+                        self.last_car_spawns[direction] = 0
+                    # Если нельзя заспавнить, ждем еще немного (0.5 сек) и попробуем снова
+                    else:
+                        # Небольшая задержка перед следующей попыткой
+                        self.last_car_spawns[direction] = interval - 0.5
 
         # пешеходы
         self.last_ped_spawn += dt

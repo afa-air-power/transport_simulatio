@@ -562,7 +562,35 @@ class TrafficSimulation:
         self.waiting_cars_v = 0
         self.h_wait_time_sq_sum = 0.0
         self.v_wait_time_sq_sum = 0.0
+
+        # Подсчет видимых машин в зоне видимости для динамического режима
+        visible_cars_h = 0
+        visible_cars_v = 0
+
+        road_half = (NUM_LANES * LANE_WIDTH) / 2
+
         for car in self.cars:
+            # Расстояние до перекрестка
+            dist_to_intersection = 0
+            if abs(car.heading[0]) > abs(car.heading[1]):  # Горизонтальное движение
+                if car.heading[0] > 0:  # Движется на восток
+                    dist_to_intersection = -road_half - car.pos[0]
+                else:  # Движется на запад
+                    dist_to_intersection = car.pos[0] - road_half
+            else:  # Вертикальное движение
+                if car.heading[1] > 0:  # Движется на юг
+                    dist_to_intersection = -road_half - car.pos[1]
+                else:  # Движется на север
+                    dist_to_intersection = car.pos[1] - road_half
+
+            # Учитываем только машины в зоне видимости перед перекрестком
+            if 0 < dist_to_intersection < CAR_VISIBILITY_RANGE:
+                if abs(car.heading[0]) > abs(car.heading[1]):
+                    visible_cars_h += 1
+                else:
+                    visible_cars_v += 1
+
+            # Подсчет ожидающих машин
             if car.is_waiting:
                 if abs(car.heading[0]) > abs(car.heading[1]):
                     self.waiting_cars_h += 1
@@ -572,7 +600,8 @@ class TrafficSimulation:
                     self.v_wait_time_sq_sum += car.waiting_time ** 2
 
         self.controller.update(dt, self.waiting_cars_h, self.waiting_cars_v,
-                               self.h_wait_time_sq_sum, self.v_wait_time_sq_sum)
+                               self.h_wait_time_sq_sum, self.v_wait_time_sq_sum,
+                               visible_cars_h, visible_cars_v)
         self.current_phase = self.controller.current_phase
         self.phase_time = self.controller.timer
 

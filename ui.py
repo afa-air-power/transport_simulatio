@@ -237,6 +237,10 @@ class UIManager:
             info_y += 25
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}", add_to_list=False))
             info_y += 25
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Видимые (H/V): {self.sim.controller.visible_cars_h} / {self.sim.controller.visible_cars_v}", add_to_list=False))
+            info_y += 25
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Давление (H/V): {self.sim.controller.pressure_h:.1f} / {self.sim.controller.pressure_v:.1f}", add_to_list=False))
+            info_y += 25
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}", add_to_list=False))
             y = info_y + 30
 
@@ -514,7 +518,9 @@ class UIManager:
         if self.sim.controller.mode == 'dynamic':
             self.info_texts[0]['text'] = f"Людей: {len(self.sim.pedestrians)}"
             self.info_texts[1]['text'] = f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}"
-            self.info_texts[2]['text'] = f"Штраф (H/V): {self.sim.controller.weighted_h_penalty:.0f} / {self.sim.controller.weighted_v_penalty:.0f}"
+            self.info_texts[2]['text'] = f"Видимые (H/V): {self.sim.controller.visible_cars_h} / {self.sim.controller.visible_cars_v}"
+            self.info_texts[3]['text'] = f"Давление (H/V): {self.sim.controller.pressure_h:.1f} / {self.sim.controller.pressure_v:.1f}"
+            self.info_texts[4]['text'] = f"Штраф (H/V): {self.sim.controller.weighted_h_penalty:.0f} / {self.sim.controller.weighted_v_penalty:.0f}"
         else:  # static
             phase_duration = self.sim.controller.phases[self.sim.current_phase]['duration']
             self.info_texts[0]['text'] = f"Текущая фаза: {self.sim.current_phase}"

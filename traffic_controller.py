@@ -92,10 +92,18 @@ class TrafficController:
         # Плотность трафика: машин в среднем за 10 секунд
         self.traffic_density = {d: 5.0 for d in DIR_INS}
 
+        # Параметры дифференциального уравнения для динамического режима
+        self.pressure_h = 0.0  # Давление горизонтального направления
+        self.pressure_v = 0.0  # Давление вертикального направления
+        self.pressure_growth_rate = 0.5  # Скорость роста давления
+        self.pressure_decay_rate = 0.3  # Скорость спада давления
+        self.switch_threshold = 10.0  # Порог переключения
 
         # Старые переменные для обратной совместимости и UI
         self.h_penalty = 0.0
         self.v_penalty = 0.0
+        self.visible_cars_h = 0
+        self.visible_cars_v = 0
 
         if self.lights:
             self.update_lights()
@@ -133,15 +141,21 @@ class TrafficController:
     def get_ped_color(self, cross_road):
         return 'green' if self.is_all_red() else 'red'
 
-    def update(self, dt, waiting_h, waiting_v, h_penalty, v_penalty):
+    def update(self, dt, waiting_h, waiting_v, h_penalty, v_penalty, visible_cars_h=0, visible_cars_v=0):
         self.timer += dt
         # Эти переменные обновляются для отображения в UI
         self.h_penalty = h_penalty
         self.v_penalty = v_penalty
+        self.visible_cars_h = visible_cars_h
+        self.visible_cars_v = visible_cars_v
 
         # Обновляем взвешенные штрафы с использованием фактора затухания.
         self.weighted_h_penalty = self.weighted_h_penalty * self.dynamic_logic_factor + self.h_penalty
         self.weighted_v_penalty = self.weighted_v_penalty * self.dynamic_logic_factor + self.v_penalty
+
+        # Решение дифференциального уравнения для динамического режима
+        if self.mode == 'dynamic':
+            self.solve_differential_equation(dt, waiting_h, waiting_v, visible_cars_h, visible_cars_v)
 
 
         should_switch = False
@@ -160,16 +174,60 @@ class TrafficController:
             new_phase_info = self.phases[self.current_phase]
             if new_phase_info['horiz'] == 'green':
                 self.weighted_h_penalty = 0
+                self.pressure_h = 0  # Сброс давления из дифференциального уравнения
             if new_phase_info['vert'] == 'green':
                 self.weighted_v_penalty = 0
+                self.pressure_v = 0  # Сброс давления из дифференциального уравнения
 
 
         self.update_lights()
 
+    def solve_differential_equation(self, dt, waiting_h, waiting_v, visible_h, visible_v):
+        """
+        Решает дифференциальное уравнение для определения давления трафика.
+
+        Модель:
+        dP_h/dt = k_growth * (waiting_h + visible_h * 0.3) - k_decay * P_h * (is_green_h ? 1 : 0)
+        dP_v/dt = k_growth * (waiting_v + visible_v * 0.3) - k_decay * P_v * (is_green_v ? 1 : 0)
+
+        где:
+        - P_h, P_v - давление (pressure) для горизонтального и вертикального направлений
+        - k_growth - коэффициент роста давления
+        - k_decay - коэффициент спада давления при открытом светофоре
+        - waiting_* - количество ожидающих машин
+        - visible_* - количество видимых машин (с меньшим весом)
+        """
+        current_phase_info = self.phases[self.current_phase]
+        is_h_green = current_phase_info['horiz'] == 'green'
+        is_v_green = current_phase_info['vert'] == 'green'
+
+        # Вклад видимых машин (с коэффициентом 0.3, так как они еще далеко)
+        h_traffic_load = waiting_h + visible_h * 0.3
+        v_traffic_load = waiting_v + visible_v * 0.3
+
+        # Дифференциальное уравнение методом Эйлера
+        # dP/dt = рост от трафика - спад при зеленом свете
+        dP_h = self.pressure_growth_rate * h_traffic_load * dt
+        dP_v = self.pressure_growth_rate * v_traffic_load * dt
+
+        # Спад давления, когда светофор зеленый (машины проезжают)
+        if is_h_green and self.pressure_h > 0:
+            dP_h -= self.pressure_decay_rate * self.pressure_h * dt
+        if is_v_green and self.pressure_v > 0:
+            dP_v -= self.pressure_decay_rate * self.pressure_v * dt
+
+        # Обновляем давление
+        self.pressure_h = max(0, self.pressure_h + dP_h)
+        self.pressure_v = max(0, self.pressure_v + dP_v)
+
+        # Дополнительное увеличение давления от времени ожидания (квадратичная зависимость)
+        self.pressure_h += self.h_penalty * 0.01 * dt
+        self.pressure_v += self.v_penalty * 0.01 * dt
+
     def evaluate_dynamic_switch(self):
         """
         Оценивает необходимость переключения фазы в динамическом режиме.
-        Логика основана на сравнении "взвешенных" штрафов для направлений.
+        Использует результаты дифференциального уравнения для принятия решения.
         """
         current_phase_info = self.phases[self.current_phase]
 
@@ -186,12 +244,27 @@ class TrafficController:
         if self.timer > self.max_phase_time:
             return True
 
-        # Основная логика: переключаемся, если взвешенный штраф ожидающего направления
-        # становится больше, чем у текущего активного направления.
+        # Комбинированная логика: используем и давление, и взвешенные штрафы
+        # Давление из дифференциального уравнения (60%) + взвешенные штрафы (40%)
         if is_h_green:
-            return self.weighted_v_penalty > self.weighted_h_penalty
+            # Переключаемся, если давление вертикального направления значительно выше
+            pressure_diff = self.pressure_v - self.pressure_h
+            penalty_diff = self.weighted_v_penalty - self.weighted_h_penalty
+
+            # Комбинированный критерий переключения
+            combined_metric = pressure_diff * 0.6 + penalty_diff * 0.4
+
+            return combined_metric > self.switch_threshold
+
         if is_v_green:
-            return self.weighted_h_penalty > self.weighted_v_penalty
+            # Переключаемся, если давление горизонтального направления значительно выше
+            pressure_diff = self.pressure_h - self.pressure_v
+            penalty_diff = self.weighted_h_penalty - self.weighted_v_penalty
+
+            # Комбинированный критерий переключения
+            combined_metric = pressure_diff * 0.6 + penalty_diff * 0.4
+
+            return combined_metric > self.switch_threshold
 
         return False
 
@@ -241,6 +314,9 @@ class TrafficController:
             'max_phase_time': self.max_phase_time,
             'dynamic_logic_factor': self.dynamic_logic_factor,
             'traffic_density': self.traffic_density,
+            'pressure_growth_rate': self.pressure_growth_rate,
+            'pressure_decay_rate': self.pressure_decay_rate,
+            'switch_threshold': self.switch_threshold,
         }
 
     def import_config_dict(self, data: dict):
@@ -285,5 +361,18 @@ class TrafficController:
             for d in DIR_INS:
                 if d in rates and isinstance(rates[d], (int, float)) and rates[d] >= 0:
                     self.traffic_density[d] = float(rates[d])
+
+        # Импорт параметров дифференциального уравнения
+        pgr = data.get('pressure_growth_rate')
+        if isinstance(pgr, (int, float)) and pgr > 0:
+            self.pressure_growth_rate = float(pgr)
+
+        pdr = data.get('pressure_decay_rate')
+        if isinstance(pdr, (int, float)) and pdr > 0:
+            self.pressure_decay_rate = float(pdr)
+
+        st = data.get('switch_threshold')
+        if isinstance(st, (int, float)) and st > 0:
+            self.switch_threshold = float(st)
 
         self.update_lights()

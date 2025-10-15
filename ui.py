@@ -233,6 +233,8 @@ class UIManager:
 
         info_y = y
         if self.sim.controller.mode == 'dynamic':
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Машин: {len(self.sim.cars)}", add_to_list=False))
+            info_y += 25
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Людей: {len(self.sim.pedestrians)}", add_to_list=False))
             info_y += 25
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}", add_to_list=False))
@@ -241,7 +243,7 @@ class UIManager:
             info_y += 25
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Давление (H/V): {self.sim.controller.pressure_h:.1f} / {self.sim.controller.pressure_v:.1f}", add_to_list=False))
             info_y += 25
-            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}", add_to_list=False))
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Ср.ожидание: {self.sim.stats['avg_wait_time']:.1f}с", add_to_list=False))
             y = info_y + 30
 
             self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), f"Фактор: {self.sim.controller.dynamic_logic_factor:.3f}")
@@ -254,11 +256,13 @@ class UIManager:
             info_y += 25
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Время: {self.sim.phase_time:.1f}", add_to_list=False))
             info_y += 25
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Машин: {len(self.sim.cars)}", add_to_list=False))
+            info_y += 25
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Людей: {len(self.sim.pedestrians)}", add_to_list=False))
             info_y += 25
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}", add_to_list=False))
             info_y += 25
-            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}", add_to_list=False))
+            self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Ср.ожидание: {self.sim.stats['avg_wait_time']:.1f}с", add_to_list=False))
             y = info_y + 20
 
         y += 20
@@ -523,11 +527,13 @@ class UIManager:
             self.info_texts[4]['text'] = f"Штраф (H/V): {self.sim.controller.weighted_h_penalty:.0f} / {self.sim.controller.weighted_v_penalty:.0f}"
         else:  # static
             phase_duration = self.sim.controller.phases[self.sim.current_phase]['duration']
-            self.info_texts[0]['text'] = f"Текущая фаза: {self.sim.current_phase}"
+            self.info_texts[0]['text'] = f"Фаза: {self.sim.current_phase}"
             self.info_texts[1]['text'] = f"Время: {self.sim.phase_time:.1f} / {phase_duration}"
-            self.info_texts[2]['text'] = f"Людей: {len(self.sim.pedestrians)}"
-            self.info_texts[3]['text'] = f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}"
-            self.info_texts[4]['text'] = f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}"
+            self.info_texts[2]['text'] = f"Машин: {len(self.sim.cars)}"
+            self.info_texts[3]['text'] = f"Людей: {len(self.sim.pedestrians)}"
+            self.info_texts[4]['text'] = f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}"
+            if len(self.info_texts) > 5:
+                self.info_texts[5]['text'] = f"Ср.ожидание: {self.sim.stats['avg_wait_time']:.1f}с"
 
         if self.sim.controller.current_phase != self.last_known_phase:
             self.last_known_phase = self.sim.controller.current_phase

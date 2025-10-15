@@ -1,51 +1,38 @@
 import pygame
 import sys
-from simulation import TrafficSimulation
-from ui import UIManager
 from constants import *
-from utils import draw_roads, draw_entities
-
+from waypoint_simulation import WaypointSimulation
 
 def main():
     pygame.init()
-    screen = pygame.display.set_mode((screen_config.width, screen_config.height))
-    pygame.display.set_caption("Traffic Simulation")
+    screen = pygame.display.set_mode((DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT))
+    pygame.display.set_caption("Traffic Simulation - Waypoint Based")
     clock = pygame.time.Clock()
 
-    sim = TrafficSimulation()
-    ui = UIManager(sim)
-
-    # Загружаем конфигурацию при запуске, если она есть
-    ui.import_config()
+    center = (DEFAULT_SCREEN_WIDTH // 2, DEFAULT_SCREEN_HEIGHT // 2)
+    simulation = WaypointSimulation(center)
 
     running = True
-    while running:
-        dt = clock.tick(FPS) / 1000.0  # Delta time в секундах
+    time_acc = 0.0
 
-        # Обработка событий
+    while running:
+        dt = clock.tick(FPS) / 1000.0
+        time_acc += dt
+
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            else:
-                ui.handle_events(event)
 
-        # Обновление
-        sim.update(dt)
-        ui.update(dt)
+        # Обновление симуляции
+        simulation.update(dt)
 
         # Отрисовка
-        screen.fill(BLACK)
-        center_x = screen_config.sim_width // 2
-        center_y = screen_config.sim_height // 2
-        draw_roads(screen, center_x, center_y, NUM_LANES)
-        draw_entities(screen, sim, center_x, center_y)
-        ui.draw(screen, ui.font)
+        simulation.draw(screen)
 
         pygame.display.flip()
 
     pygame.quit()
     sys.exit()
-
 
 if __name__ == "__main__":
     main()

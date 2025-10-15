@@ -9,3 +9,4 @@ __pycache__/traffic_controller.cpython-312.pyc
 *.pyc
 *.pyc
 __pycache__/llm_generator.cpython-312.pyc
+/.idea

@@ -169,10 +169,6 @@ def draw_entities(screen, sim, center_x, center_y, zoom=1.0):
         p.pos = [x, y]
         p.draw(screen)
         p.pos = p.pos_temp
-    for p in sim.peds:
-        x = center_x + p.pos[0] * zoom
-        y = center_y + p.pos[1] * zoom
-        pygame.draw.circle(screen, p.color, (int(x), int(y)), int(p.size * zoom))
 
     for light in sim.controller.lights.values():
         light.draw(screen, center_x, center_y)

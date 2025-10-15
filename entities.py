@@ -1,76 +1,78 @@
 # entities.py
 import random
 import math
+import pygame
+from typing import Tuple, Optional
 from constants import *
 
+# Используем pygame.Vector2 для удобных векторных операций
+Vec2 = pygame.math.Vector2
+
 class Vehicle:
-    def __init__(self, dir_in, num_lanes=NUM_LANES):
+    """Унифицированный класс машины — заменяет старые Car/Vehicle дубли."""
+    def __init__(self, dir_in: str, num_lanes: int = NUM_LANES):
         self.dir_in = dir_in
+        # turn: 0 = straight, 1 = right, 2 = left
         self.turn = random.choices([0, 1, 2], TURN_PROBS)[0]
         self.lane = random.randint(0, num_lanes - 1)
-        self.target_lane = self.lane
-        self.set_target_lane(num_lanes)
+        self.target_lane = self._choose_target_lane(num_lanes)
 
+        # Физика
         self.target_speed = random.uniform(SPEED_MIN, SPEED_MAX)
-        self.current_speed = 0
-        self.pos = self.get_initial_pos(num_lanes)
-        self.heading = self.get_initial_heading()
+        self.current_speed = 0.0
+        self.pos = Vec2(self._initial_pos(num_lanes))
+        self.heading = Vec2(self._initial_heading())
+        self.has_turned = False
+        self.turning = False
+        self.turn_center = Vec2(0, 0)
+        self.turn_angle = 0.0
+        self.turn_start_angle = 0.0
+        self.turn_end_angle = 0.0
+
+        # визуальные размеры и масса
+        self.mass = random.uniform(800.0, 1500.0)
+        self.length = random.uniform(4.0, 6.0)
+        self.width = random.uniform(2.0, 3.5)
+        self.accel_rate = random.uniform(1.5, 3.0)
+        self.brake_rate = random.uniform(4.0, 6.0)
+
+        # цвет по направлению (сохранение визуала)
         if self.turn == 0:
             self.color = (random.randint(0, 100), random.randint(150, 255), random.randint(0, 100))
         elif self.turn == 1:
             self.color = (random.randint(150, 255), random.randint(0, 100), random.randint(0, 100))
         else:
             self.color = (random.randint(0, 100), random.randint(0, 100), random.randint(150, 255))
-        self.dist_to_inter = ROAD_SIZE
-        self.has_turned = False
-        self.turning = False
-        self.turn_center = (0, 0)
-        self.turn_angle = 0
-        self.turn_start_angle = 0
-        self.turn_end_angle = 0
+
+        self.wait_time = 0.0
         self.stopped = False
-        self.wait_time = 0
-        self.mass = random.uniform(800, 1500)
-        self.length = random.uniform(4, 6)
-        self.width = random.uniform(2, 3.5)
-        self.accel_rate = random.uniform(1.5, 3.0)
-        self.brake_rate = random.uniform(4.0, 6.0)
 
-    def set_target_lane(self, num_lanes):
-        """Определяет целевую полосу в зависимости от направления поворота."""
-        # turn: 0=прямо, 1=направо, 2=налево
-        # lane: 0=крайняя левая, N-1=крайняя правая (относительно направления движения)
+    def _choose_target_lane(self, num_lanes: int) -> int:
         if num_lanes < 2:
-            self.target_lane = self.lane
-            return
+            return 0
+        if self.turn == 2:  # left
+            return 0
+        if self.turn == 1:  # right
+            return num_lanes - 1
+        # straight
+        if self.lane == 0:
+            return 1
+        if self.lane == num_lanes - 1:
+            return num_lanes - 2
+        return self.lane
 
-        # Простое правило: левая полоса для поворота налево, правая - направо.
-        # Для движения прямо можно использовать любую полосу, кроме крайней для поворота.
-        if self.turn == 2:  # Налево
-            self.target_lane = 0
-        elif self.turn == 1:  # Направо
-            self.target_lane = num_lanes - 1
-        else:  # Прямо
-            # Если случайно оказались в полосе только для поворота, надо сместиться
-            if self.lane == 0:
-                self.target_lane = 1
-            elif self.lane == num_lanes - 1:
-                self.target_lane = num_lanes - 2
-            else:
-                self.target_lane = self.lane
-
-    def get_initial_pos(self, num_lanes):
+    def _initial_pos(self, num_lanes: int) -> Tuple[float, float]:
         offset = - (num_lanes * LANE_WIDTH) / 2 + self.lane * LANE_WIDTH + LANE_WIDTH / 2
         if self.dir_in == 'from_west':
             return (-ROAD_SIZE, offset)
-        elif self.dir_in == 'from_east':
+        if self.dir_in == 'from_east':
             return (ROAD_SIZE, -offset)
-        elif self.dir_in == 'from_north':
+        if self.dir_in == 'from_north':
             return (offset, -ROAD_SIZE)
-        elif self.dir_in == 'from_south':
-            return (-offset, ROAD_SIZE)
+        # from_south
+        return (-offset, ROAD_SIZE)
 
-    def get_initial_heading(self):
+    def _initial_heading(self) -> Tuple[int, int]:
         return {
             'from_west': (1, 0),
             'from_east': (-1, 0),
@@ -78,120 +80,141 @@ class Vehicle:
             'from_south': (0, -1)
         }[self.dir_in]
 
-    def update_lane_pos(self, num_lanes):
-        offset = - (num_lanes * LANE_WIDTH) / 2 + self.lane * LANE_WIDTH + LANE_WIDTH / 2
-        if self.heading[0] != 0:
-            self.pos = (self.pos[0], offset if self.heading[0] > 0 else -offset)
+    def update(self, dt: float):
+        """Обновление скорости и позиции. Внешняя логика должна устанавливать self.turning / остановки."""
+        # простая модель ускорения/торможения к target_speed
+        if self.current_speed < self.target_speed:
+            self.current_speed = min(self.current_speed + self.accel_rate * dt, self.target_speed)
         else:
-            self.pos = (offset if self.heading[1] > 0 else -offset, self.pos[1])
+            self.current_speed = max(self.current_speed - self.brake_rate * dt, self.target_speed)
 
-    def accelerate(self, dt, target_speed):
-        if target_speed > self.current_speed:
-            self.current_speed = min(self.current_speed + self.accel_rate * dt, target_speed)
-        else:
-            self.current_speed = max(self.current_speed - self.brake_rate * dt, target_speed)
-
-    def move(self, dt):
         if self.turning:
-            angular_speed = self.current_speed / TURN_RADIUS
-            self.turn_angle -= angular_speed * dt if (self.turn_end_angle - self.turn_start_angle) % (2 * math.pi) > math.pi else angular_speed * dt  # Direction based on turn
-            self.pos = (self.turn_center[0] + TURN_RADIUS * math.cos(self.turn_angle),
-                        self.turn_center[1] + TURN_RADIUS * math.sin(self.turn_angle))
-            self.heading = (math.cos(self.turn_angle), math.sin(self.turn_angle))
-            if abs(self.turn_angle - self.turn_end_angle) < 0.01:
+            # вращение по дуге вокруг turn_center
+            angular_speed = (self.current_speed / max(TURN_RADIUS, 0.1))
+            # определим направление вращения по знаку разницы углов
+            # используем модульную арифметику
+            # двигаем угол в сторону turn_end_angle
+            diff = (self.turn_end_angle - self.turn_angle + math.pi*2) % (math.pi*2)
+            if diff > math.pi:
+                # короткий путь в отрицательную сторону
+                self.turn_angle -= angular_speed * dt
+            else:
+                self.turn_angle += angular_speed * dt
+
+            # позиция на дуге
+            self.pos = self.turn_center + Vec2(math.cos(self.turn_angle), math.sin(self.turn_angle)) * TURN_RADIUS
+            self.heading = Vec2(math.cos(self.turn_angle), math.sin(self.turn_angle))
+            # завершение поворота (по близости)
+            if abs((self.turn_angle - self.turn_end_angle + math.pi*2) % (math.pi*2)) < 0.02:
                 self.turning = False
                 self.has_turned = True
-                self.dist_to_inter = TURN_RADIUS * math.pi / 2  # Approximate distance traveled during turn
         else:
-            self.pos = (self.pos[0] + self.heading[0] * self.current_speed * dt,
-                        self.pos[1] + self.heading[1] * self.current_speed * dt)
-            self.dist_to_inter -= self.current_speed * dt
+            self.pos += self.heading * self.current_speed * dt
 
-    def start_turn(self):
-        if self.turn == 0:
+    def try_start_turn(self):
+        """Инициализация параметров поворота. Возвращает True, если поворот запущен."""
+        if self.turn == 0 or self.turning or self.has_turned:
             return False
-        self.turn_center = (self.pos[0] + TURN_CENTERS[self.dir_in][self.turn][0],
-                            self.pos[1] + TURN_CENTERS[self.dir_in][self.turn][1])
-        self.turn_start_angle, self.turn_end_angle = TURN_ANGLES[self.dir_in][self.turn]
+        centers = TURN_CENTERS.get(self.dir_in, {})
+        angles = TURN_ANGLES.get(self.dir_in, {})
+        if self.turn not in centers or self.turn not in angles:
+            return False
+        # вычисляем центр и углы
+        base_center = centers[self.turn]
+        self.turn_center = Vec2(base_center)
+        self.turn_start_angle, self.turn_end_angle = angles[self.turn]
         self.turn_angle = self.turn_start_angle
         self.turning = True
         return True
 
+    def to_draw_rect(self, center_x: int, center_y: int, scale: float = 1.0):
+        """Возвращает pygame.Rect для отрисовки машины (простейшее представление)."""
+        # шкалирование логики в пиксели — в твоей системе координаты симуляции сопоставляются экрану
+        w = max(4, int(self.width * 2 * scale))
+        h = max(8, int(self.length * 2 * scale))
+        # позиция относительно центра
+        x = int(center_x + self.pos.x) - w // 2
+        y = int(center_y + self.pos.y) - h // 2
+        return pygame.Rect(x, y, w, h)
+
 class Pedestrian:
-    def __init__(self, cross, group_pos=None, num_lanes=NUM_LANES):
-        self.cross = cross
+    """Пешеход с простыми силами притяжения/отталкивания."""
+    def __init__(self, cross: str, group_pos: Optional[Tuple[float, float]] = None, num_lanes: int = NUM_LANES):
+        self.cross = cross  # 'horizontal' или 'vertical'
         self.size = random.uniform(PED_SIZE_MIN, PED_SIZE_MAX)
         self.speed = random.uniform(PED_SPEED_MIN, PED_SPEED_MAX)
-        self.color = (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255))  # Random color
-        self.pos = group_pos if group_pos else self.get_initial_pos(num_lanes)
-        self.heading = self.get_initial_heading()
-        self.current_speed = 0
+        self.color = (random.randint(100, 255), random.randint(100, 255), random.randint(100, 255))
+        self.pos = Vec2(group_pos) if group_pos else Vec2(self._initial_pos(num_lanes))
+        self.heading = Vec2(self._initial_heading())
+        self.current_speed = 0.0
         self.stopped = True
-        self.wait_time = 0
-        self.goal = self.get_goal(num_lanes)  # Goal position across the road
+        self.wait_time = 0.0
+        self.goal = Vec2(self._get_goal(num_lanes))
 
-    def get_initial_pos(self, num_lanes):
+    def _initial_pos(self, num_lanes: int):
         side = random.choice([-1, 1])
-        offset = random.uniform(-10, 10)  # Slight random offset for realism
+        offset = random.uniform(-10, 10)
         sidewalk_offset = num_lanes * LANE_WIDTH / 2 + SIDEWALK_WIDTH / 2 + 10
         if self.cross == 'horizontal':
             return (offset, side * sidewalk_offset)
         else:
             return (side * sidewalk_offset, offset)
 
-    def get_initial_heading(self):
+    def _initial_heading(self):
         if self.cross == 'horizontal':
-            return (0, -self.pos[1] / abs(self.pos[1]))
+            return (0, -1 if self.pos.y > 0 else 1)
         else:
-            return (-self.pos[0] / abs(self.pos[0]), 0)
+            return (-1 if self.pos.x > 0 else 1, 0)
 
-    def get_goal(self, num_lanes):
-        sidewalk_offset = num_lanes * LANE_WIDTH / 2 + SIDEWALK_WIDTH / 2 + 10
+    def _get_goal(self, num_lanes: int):
         if self.cross == 'horizontal':
-            return (self.pos[0], -self.pos[1])
+            return (self.pos.x, -self.pos.y)
         else:
-            return (-self.pos[0], self.pos[1])
+            return (-self.pos.x, self.pos.y)
 
-    def calculate_forces(self, peds, cars, dt):
+    def calculate_forces(self, others: list, cars: list):
         # Attraction to goal
-        dx, dy = self.goal[0] - self.pos[0], self.goal[1] - self.pos[1]
-        dist_to_goal = math.hypot(dx, dy)
-        if dist_to_goal > 0:
-            attraction = (dx / dist_to_goal * PED_ATTRACTION, dy / dist_to_goal * PED_ATTRACTION)
-        else:
-            attraction = (0, 0)
+        to_goal = self.goal - self.pos
+        dist_goal = to_goal.length()
+        attraction = Vec2(0, 0)
+        if dist_goal > 0:
+            attraction = to_goal.normalize() * PED_ATTRACTION
 
         # Repulsion from other peds
-        repulsion_peds = (0, 0)
-        for other in peds:
-            if other != self:
-                dx_o, dy_o = other.pos[0] - self.pos[0], other.pos[1] - self.pos[1]
-                dist = math.hypot(dx_o, dy_o)
-                if dist < 5 and dist > 0:
-                    rep_force = PED_REPULSION / dist ** 2
-                    repulsion_peds = (repulsion_peds[0] - dx_o / dist * rep_force, repulsion_peds[1] - dy_o / dist * rep_force)
+        repulsion = Vec2(0, 0)
+        for o in others:
+            if o is self:
+                continue
+            diff = o.pos - self.pos
+            d = diff.length()
+            if 0 < d < 5:
+                repulsion -= diff.normalize() * (PED_REPULSION / (d * d + 1e-6))
 
         # Repulsion from cars (stronger)
-        repulsion_cars = (0, 0)
-        for car in cars:
-            dx_c, dy_c = car.pos[0] - self.pos[0], car.pos[1] - self.pos[1]
-            dist = math.hypot(dx_c, dy_c)
-            if dist < 10 and dist > 0:
-                rep_force = PED_REPULSION * 2 / dist ** 2  # Stronger for cars
-                repulsion_cars = (repulsion_cars[0] - dx_c / dist * rep_force, repulsion_cars[1] - dy_c / dist * rep_force)
+        rep_cars = Vec2(0, 0)
+        for c in cars:
+            diff = c.pos - self.pos
+            d = diff.length()
+            if 0 < d < 10:
+                rep_cars -= diff.normalize() * (PED_REPULSION * 2 / (d * d + 1e-6))
 
-        total_force = (attraction[0] + repulsion_peds[0] + repulsion_cars[0], attraction[1] + repulsion_peds[1] + repulsion_cars[1])
-        norm = math.hypot(*total_force)
-        if norm > 0:
-            self.heading = (total_force[0] / norm, total_force[1] / norm)
+        total = attraction + repulsion + rep_cars
+        if total.length_squared() > 0:
+            self.heading = total.normalize()
 
-    def move(self, dt, can_go, peds, cars):
+    def move(self, dt: float, can_go: bool, others: list, cars: list):
         if can_go:
-            self.calculate_forces(peds, cars, dt)
+            self.calculate_forces(others, cars)
             self.current_speed = self.speed
+            self.stopped = False
         else:
-            self.current_speed = 0
-        self.pos = (self.pos[0] + self.heading[0] * self.current_speed * dt,
-                    self.pos[1] + self.heading[1] * self.current_speed * dt)
-        if self.current_speed == 0:
+            self.current_speed = 0.0
+            self.stopped = True
             self.wait_time += dt
+        self.pos += self.heading * self.current_speed * dt
+
+    def to_draw_circle(self, center_x: int, center_y: int, scale: float = 1.0):
+        r = max(2, int(self.size * scale))
+        x = int(center_x + self.pos.x)
+        y = int(center_y + self.pos.y)
+        return (x, y, r)

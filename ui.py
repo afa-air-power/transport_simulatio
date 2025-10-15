@@ -395,6 +395,9 @@ class ScrollablePanel:
         original_clip = screen.get_clip()
         screen.set_clip(self.viewport_rect)
 
+        # Собираем открытые dropdown для отрисовки в последнюю очередь
+        open_dropdowns = []
+
         # Отрисовка элементов с учетом прокрутки
         for element in self.elements:
             if isinstance(element, dict) and element.get('type') == 'rect':
@@ -425,7 +428,16 @@ class ScrollablePanel:
                 element.rect.y -= self.scroll_y
 
                 if element.rect.bottom >= self.viewport_rect.top and element.rect.top <= self.viewport_rect.bottom:
-                    element.draw(screen, font)
+                    # Если это открытый dropdown, откладываем его отрисовку
+                    if isinstance(element, Dropdown) and element.is_open:
+                        open_dropdowns.append((element, original_rect))
+                        # Рисуем только закрытую часть dropdown
+                        was_open = element.is_open
+                        element.is_open = False
+                        element.draw(screen, font)
+                        element.is_open = was_open
+                    else:
+                        element.draw(screen, font)
 
                 element.rect = original_rect
 
@@ -444,6 +456,13 @@ class ScrollablePanel:
                 for offset in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1)]:
                     screen.blit(text_glow, (scrolled_pos[0] + offset[0], scrolled_pos[1] + offset[1]))
                 screen.blit(text_surface, scrolled_pos)
+
+        # Отрисовываем открытые dropdown поверх всех элементов
+        for dropdown, original_rect in open_dropdowns:
+            dropdown.rect.y -= self.scroll_y
+            # Рисуем только выпадающее меню (основную часть уже нарисовали)
+            self._draw_dropdown_menu(screen, font, dropdown)
+            dropdown.rect = original_rect
 
         screen.set_clip(original_clip)
 
@@ -486,6 +505,54 @@ class ScrollablePanel:
     def get_adjusted_event_pos(self, event_pos):
         """Возвращает позицию события с учетом прокрутки."""
         return (event_pos[0], event_pos[1] + self.scroll_y)
+
+    def _draw_dropdown_menu(self, screen, font, dropdown):
+        """Отрисовывает только выпадающее меню dropdown."""
+        import math
+
+        for i, option in enumerate(dropdown.options):
+            option_rect = pygame.Rect(
+                dropdown.rect.x,
+                dropdown.rect.y + dropdown.rect.height * (i + 1),
+                dropdown.rect.width,
+                dropdown.rect.height
+            )
+
+            # Определяем цвет опции
+            if i == dropdown.selected_index:
+                option_neon = dropdown.neon_selected
+            else:
+                option_neon = dropdown.neon_base
+
+            # Свечение для каждой опции
+            for j in range(4, 0, -1):
+                alpha = int(25 * (1 - j / 4))
+                glow_surf = pygame.Surface((option_rect.width + j * 2, option_rect.height + j * 2), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (*option_neon, alpha), 
+                               pygame.Rect(0, 0, option_rect.width + j * 2, option_rect.height + j * 2), 
+                               border_radius=5)
+                screen.blit(glow_surf, (option_rect.x - j, option_rect.y - j))
+
+            # Фон опции
+            pygame.draw.rect(screen, dropdown.bg_color, option_rect, border_radius=4)
+
+            # Окантовка опции
+            pygame.draw.rect(screen, (*option_neon, 200), option_rect, 2, border_radius=4)
+            pygame.draw.rect(screen, (*option_neon, 100), option_rect, 1, border_radius=4)
+
+            # Яркий контрастный текст опции
+            option_shadow = font.render(option, True, (0, 0, 0))
+            option_glow = font.render(option, True, option_neon)
+            option_text = font.render(option, True, (255, 255, 255))
+            option_text_rect = option_text.get_rect(center=option_rect.center)
+
+            # Тень
+            screen.blit(option_shadow, (option_text_rect.x + 1, option_text_rect.y + 1))
+            # Свечение
+            for offset in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
+                screen.blit(option_glow, (option_text_rect.x + offset[0], option_text_rect.y + offset[1]))
+            # Белый текст
+            screen.blit(option_text, option_text_rect)
 
 
 import threading
@@ -758,6 +825,48 @@ class UIManager:
             # Проверяем клики для элементов в scrollable panel
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = event.pos
+
+                # Сначала проверяем открытые dropdown (они имеют приоритет)
+                for element in self.scrollable_panel.elements:
+                    if isinstance(element, Dropdown) and element.is_open:
+                        scrolled_rect = element.rect.copy()
+                        scrolled_rect.y -= self.scrollable_panel.scroll_y
+
+                        # Проверяем клик на основную кнопку
+                        if scrolled_rect.collidepoint(mouse_pos):
+                            original_rect = element.rect
+                            element.rect = scrolled_rect
+                            element.is_open = False  # Закрываем при клике на кнопку
+                            element.rect = original_rect
+                            return True
+
+                        # Проверяем клик на выпадающие опции
+                        for i in range(len(element.options)):
+                            option_rect = pygame.Rect(
+                                scrolled_rect.x,
+                                scrolled_rect.y + scrolled_rect.height * (i + 1),
+                                scrolled_rect.width,
+                                scrolled_rect.height
+                            )
+                            if option_rect.collidepoint(mouse_pos):
+                                element.selected_index = i
+                                element.callback(element.options[i])
+                                element.is_open = False
+                                self.rebuild_ui_elements()
+                                return True
+
+                        # Клик вне dropdown - закрываем его
+                        full_area = scrolled_rect.union(pygame.Rect(
+                            scrolled_rect.x, 
+                            scrolled_rect.y + scrolled_rect.height, 
+                            scrolled_rect.width, 
+                            element.open_height
+                        ))
+                        if not full_area.collidepoint(mouse_pos):
+                            element.is_open = False
+                            return True
+
+                # Затем обрабатываем клики на обычные элементы
                 if self.scrollable_panel.viewport_rect.collidepoint(mouse_pos):
                     for element in self.scrollable_panel.elements:
                         if isinstance(element, (Button, Dropdown)):
@@ -781,10 +890,6 @@ class UIManager:
                                 element.rect = original_rect
 
                                 if result:
-                                    if isinstance(element, Dropdown):
-                                        pass
-
-                                        #self.rebuild_ui_elements()
                                     return True
 
         # Обработка hover для обычных элементов

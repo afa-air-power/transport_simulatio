@@ -50,7 +50,7 @@ class Crosswalk:
                 pygame.draw.rect(screen, stripe_color, 
                                (center_x - offset, center_y - 34, stripe_width, 68))
 
-def draw_roads(screen, center_x, center_y, num_lanes):
+def draw_roads(screen, center_x, center_y, num_lanes, zoom=1.0):
     from constants import screen_config
     road_width = num_lanes * LANE_WIDTH
 

@@ -2,8 +2,8 @@
 import pygame
 
 # Базовые размеры (по умолчанию)
-DEFAULT_SCREEN_WIDTH = 1200
-DEFAULT_SCREEN_HEIGHT = 900
+DEFAULT_SCREEN_WIDTH = 1280
+DEFAULT_SCREEN_HEIGHT = 720
 UI_PANEL_WIDTH = 300
 
 class ScreenConfig:

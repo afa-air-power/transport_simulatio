@@ -327,6 +327,167 @@ class Dropdown:
         return False
 
 
+class ScrollablePanel:
+    """Прокручиваемая панель для размещения множества элементов."""
+    def __init__(self, viewport_rect):
+        self.viewport_rect = pygame.Rect(viewport_rect)
+        self.elements = []
+        self.content_height = 0
+        self.scroll_y = 0
+        self.scrollbar_track_rect = None
+        self.scrollbar_thumb_rect = None
+        self.is_dragging = False
+        self.drag_start_y = 0
+        self.drag_start_scroll_y = 0
+        self.glow_pulse = 0
+
+    def add_element(self, element):
+        """Добавляет элемент в прокручиваемую панель."""
+        self.elements.append(element)
+        return element
+
+    def clear_elements(self):
+        """Очищает все элементы."""
+        self.elements.clear()
+        self.content_height = 0
+        self.scroll_y = 0
+
+    def set_content_height(self, height):
+        """Устанавливает общую высоту контента."""
+        self.content_height = height
+        max_scroll = max(0, self.content_height - self.viewport_rect.height)
+        self.scroll_y = max(0, min(self.scroll_y, max_scroll))
+
+    def handle_wheel(self, event):
+        """Обрабатывает прокрутку колесом мыши."""
+        if self.viewport_rect.collidepoint(pygame.mouse.get_pos()):
+            self.scroll_y -= event.y * 20
+            self.scroll_y = max(0, min(self.scroll_y, max(0, self.content_height - self.viewport_rect.height)))
+            return True
+        return False
+
+    def handle_scrollbar_event(self, event):
+        """Обрабатывает события для скроллбара."""
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if self.scrollbar_thumb_rect and self.scrollbar_thumb_rect.collidepoint(event.pos):
+                self.is_dragging = True
+                self.drag_start_y = event.pos[1]
+                self.drag_start_scroll_y = self.scroll_y
+                return True
+
+        if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
+            self.is_dragging = False
+
+        if event.type == pygame.MOUSEMOTION and self.is_dragging:
+            dy = event.pos[1] - self.drag_start_y
+            scroll_delta = dy * (self.content_height / self.viewport_rect.height)
+            self.scroll_y = self.drag_start_scroll_y + scroll_delta
+            self.scroll_y = max(0, min(self.scroll_y, max(0, self.content_height - self.viewport_rect.height)))
+            return True
+
+        return False
+
+    def draw(self, screen, font, background_pulse=0):
+        """Отрисовывает прокручиваемую панель."""
+        import math
+        self.glow_pulse += 0.03
+
+        original_clip = screen.get_clip()
+        screen.set_clip(self.viewport_rect)
+
+        # Отрисовка элементов с учетом прокрутки
+        for element in self.elements:
+            if isinstance(element, dict) and element.get('type') == 'rect':
+                scrolled_rect = element['rect'].copy()
+                scrolled_rect.y -= self.scroll_y
+
+                if scrolled_rect.bottom < self.viewport_rect.top or scrolled_rect.top > self.viewport_rect.bottom:
+                    continue
+
+                # Неоновая подсветка
+                pulse = abs(math.sin(background_pulse * 2))
+                neon_highlight = (100, 200, 255)
+
+                for i in range(6, 0, -1):
+                    alpha = int(30 * pulse * (1 - i / 6))
+                    glow_rect = scrolled_rect.inflate(i * 2, i * 2)
+                    glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                    pygame.draw.rect(glow_surf, (*neon_highlight, alpha), 
+                                   pygame.Rect(0, 0, glow_rect.width, glow_rect.height), 
+                                   border_radius=6)
+                    screen.blit(glow_surf, glow_rect.topleft)
+
+                pygame.draw.rect(screen, (20, 20, 40), scrolled_rect, border_radius=4)
+                pygame.draw.rect(screen, (*neon_highlight, int(150 + 100 * pulse)), scrolled_rect, 2, border_radius=4)
+
+            elif isinstance(element, (Button, Dropdown)):
+                original_rect = element.rect.copy()
+                element.rect.y -= self.scroll_y
+
+                if element.rect.bottom >= self.viewport_rect.top and element.rect.top <= self.viewport_rect.bottom:
+                    element.draw(screen, font)
+
+                element.rect = original_rect
+
+            elif isinstance(element, dict) and element.get('type') == 'text':
+                scrolled_pos = (element['pos'][0], element['pos'][1] - self.scroll_y)
+
+                if scrolled_pos[1] < self.viewport_rect.top - 30 or scrolled_pos[1] > self.viewport_rect.bottom:
+                    continue
+
+                neon_text_color = (0, 220, 255)
+                text_shadow = font.render(element['text'], True, (0, 0, 0))
+                text_glow = font.render(element['text'], True, neon_text_color)
+                text_surface = font.render(element['text'], True, (255, 255, 255))
+
+                screen.blit(text_shadow, (scrolled_pos[0] + 1, scrolled_pos[1] + 1))
+                for offset in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1)]:
+                    screen.blit(text_glow, (scrolled_pos[0] + offset[0], scrolled_pos[1] + offset[1]))
+                screen.blit(text_surface, scrolled_pos)
+
+        screen.set_clip(original_clip)
+
+        # Рисуем скроллбар
+        if self.content_height > self.viewport_rect.height:
+            pulse = abs(math.sin(self.glow_pulse))
+
+            self.scrollbar_track_rect = pygame.Rect(
+                self.viewport_rect.right - 12, 
+                self.viewport_rect.top, 
+                10, 
+                self.viewport_rect.height
+            )
+            pygame.draw.rect(screen, (15, 15, 30), self.scrollbar_track_rect, border_radius=5)
+            pygame.draw.rect(screen, (0, 150, 200, 100), self.scrollbar_track_rect, 1, border_radius=5)
+
+            viewable_ratio = self.viewport_rect.height / self.content_height
+            thumb_h = max(20, self.viewport_rect.height * viewable_ratio)
+
+            scrollable_dist = self.content_height - self.viewport_rect.height
+            scroll_ratio = self.scroll_y / max(1, scrollable_dist)
+
+            thumb_y = self.scrollbar_track_rect.top + scroll_ratio * (self.scrollbar_track_rect.height - thumb_h)
+
+            self.scrollbar_thumb_rect = pygame.Rect(self.scrollbar_track_rect.x + 1, thumb_y, 8, thumb_h)
+
+            neon_scrollbar = (0, 255, 200)
+            for i in range(3, 0, -1):
+                alpha = int(60 * (1 - i / 3))
+                glow_rect = self.scrollbar_thumb_rect.inflate(i * 2, 0)
+                glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                pygame.draw.rect(glow_surf, (*neon_scrollbar, alpha), 
+                               pygame.Rect(0, 0, glow_rect.width, glow_rect.height), 
+                               border_radius=5)
+                screen.blit(glow_surf, glow_rect.topleft)
+
+            pygame.draw.rect(screen, neon_scrollbar, self.scrollbar_thumb_rect, border_radius=4)
+            pygame.draw.rect(screen, (150, 255, 255), self.scrollbar_thumb_rect, 1, border_radius=4)
+
+    def get_adjusted_event_pos(self, event_pos):
+        """Возвращает позицию события с учетом прокрутки."""
+        return (event_pos[0], event_pos[1] + self.scroll_y)
+
+
 import threading
 from llm_generator import generate_config_with_llm
 
@@ -343,15 +504,9 @@ class UIManager:
         self.ai_thread_result = None
         self.ai_scenario_input = None
         self.info_texts = []
-        self.scroll_y = 0
-        self.phases_viewport_rect = None
-        self.total_phases_height = 0
-        self.scrollbar_track_rect = None
-        self.scrollbar_thumb_rect = None
-        self.is_dragging_scrollbar = False
-        self.drag_start_y = 0
-        self.drag_start_scroll_y = 0
+        self.scrollable_panel = None
         self.background_pulse = 0
+        self.zoom_level = 1.0
         self.rebuild_ui_elements()
 
     def rebuild_ui_elements(self):
@@ -374,6 +529,13 @@ class UIManager:
         mode_text = "Режим: " + ("Динамический" if self.sim.controller.mode == 'dynamic' else "Статический")
         self.add_button((screen_config.width - UI_PANEL_WIDTH + 20, y, 260, 30), mode_text, self.toggle_mode)
         y += 40
+
+        # Управление масштабом
+        #self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), f"Масштаб: {self.zoom_level:.1f}x")
+        #self.add_button((screen_config.width - UI_PANEL_WIDTH + 130, y - 2, 60, 25), "Zoom +", self.zoom_in)
+        #self.add_button((screen_config.width - UI_PANEL_WIDTH + 195, y - 2, 60, 25), "Zoom -", self.zoom_out)
+        #self.add_button((screen_config.width - UI_PANEL_WIDTH + 260, y - 2, 20, 25), "⟲", self.zoom_reset)
+        #y += 35
 
         self.add_button((screen_config.width - UI_PANEL_WIDTH + 20, y, 125, 30), "Сохранить", self.export_config)
         self.add_button((screen_config.width - UI_PANEL_WIDTH + 155, y, 125, 30), "Сбросить", self.reset_settings)
@@ -405,12 +567,12 @@ class UIManager:
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Давление (H/V): {self.sim.controller.pressure_h:.1f} / {self.sim.controller.pressure_v:.1f}", add_to_list=False))
             info_y += 25
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}", add_to_list=False))
-            y = info_y + 30
+            #y = info_y + 30
 
             self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), f"Фактор: {self.sim.controller.dynamic_logic_factor:.3f}")
             self.add_button((screen_config.width - UI_PANEL_WIDTH + 180, y - 2, 45, 20), "+", lambda: self.change_dynamic_factor(0.001))
             self.add_button((screen_config.width - UI_PANEL_WIDTH + 230, y - 2, 45, 20), "-", lambda: self.change_dynamic_factor(-0.001))
-            y += 25
+            #y += 25
 
         else:
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Фаза: {self.sim.current_phase}", add_to_list=False))
@@ -422,7 +584,7 @@ class UIManager:
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Ожидают (H/V): {self.sim.waiting_cars_h} / {self.sim.waiting_cars_v}", add_to_list=False))
             info_y += 25
             self.info_texts.append(self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, info_y), f"Штраф (H/V): {self.sim.h_wait_time_sq_sum:.1f} / {self.sim.v_wait_time_sq_sum:.1f}", add_to_list=False))
-            y = info_y + 20
+            #y = info_y + 20
 
         y += 20
         self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, y), "Плотность (машин/10с):")
@@ -444,29 +606,47 @@ class UIManager:
             phases_area_start_y = y
 
             add_phase_button_h = 40
-            self.phases_viewport_rect = pygame.Rect(screen_config.width - UI_PANEL_WIDTH, phases_area_start_y, UI_PANEL_WIDTH, screen_config.height - phases_area_start_y - add_phase_button_h - 15)
+            viewport_rect = pygame.Rect(
+                screen_config.width - UI_PANEL_WIDTH, 
+                phases_area_start_y, 
+                UI_PANEL_WIDTH, 
+                screen_config.height - phases_area_start_y - add_phase_button_h - 15
+            )
+
+            self.scrollable_panel = ScrollablePanel(viewport_rect)
 
             colors_eng = ["green", "yellow", "red"]
             y_content_offset = 0
+
             for i, phase in enumerate(self.sim.controller.phases):
-                block_y = phases_area_start_y + y_content_offset - self.scroll_y
+                block_y = phases_area_start_y + y_content_offset
 
                 if i == self.sim.controller.current_phase:
                     highlight_rect = pygame.Rect(screen_config.width - UI_PANEL_WIDTH + 10, block_y - 5, UI_PANEL_WIDTH - 20, 48)
-                    self.elements.append({'type': 'rect', 'rect': highlight_rect, 'color': (90, 90, 70)})
+                    self.scrollable_panel.add_element({'type': 'rect', 'rect': highlight_rect, 'color': (90, 90, 70)})
 
-                self.add_text((screen_config.width - UI_PANEL_WIDTH + 20, block_y), f"Длительность: {phase['duration']}s")
-                self.add_button((screen_config.width - UI_PANEL_WIDTH + 150, block_y - 2, 25, 20), "+5", lambda index=i: self.change_phase_duration(index, 5))
-                self.add_button((screen_config.width - UI_PANEL_WIDTH + 180, block_y - 2, 25, 20), "-5", lambda index=i: self.change_phase_duration(index, -5))
+                text_elem = {'type': 'text', 'pos': (screen_config.width - UI_PANEL_WIDTH + 20, block_y), 'text': f"Длительность: {phase['duration']}s"}
+                self.scrollable_panel.add_element(text_elem)
+
+                btn1 = Button((screen_config.width - UI_PANEL_WIDTH + 150, block_y - 2, 25, 20), "+5", lambda index=i: self.change_phase_duration(index, 5))
+                self.scrollable_panel.add_element(btn1)
+                btn2 = Button((screen_config.width - UI_PANEL_WIDTH + 180, block_y - 2, 25, 20), "-5", lambda index=i: self.change_phase_duration(index, -5))
+                self.scrollable_panel.add_element(btn2)
 
                 h_color_idx = colors_eng.index(phase['horiz'])
-                dd_h = self.add_dropdown((screen_config.width - UI_PANEL_WIDTH + 20, block_y + 18, 85, 25), colors_eng, h_color_idx, "Horiz", lambda color, index=i: self.update_phase_color(index, 'horiz', color))
-                v_color_idx = colors_eng.index(phase['vert'])
-                dd_v = self.add_dropdown((screen_config.width - UI_PANEL_WIDTH + 110, block_y + 18, 85, 25), colors_eng, v_color_idx, "Vert", lambda color, index=i: self.update_phase_color(index, 'vert', color))
+                dd_h = Dropdown((screen_config.width - UI_PANEL_WIDTH + 20, block_y + 18, 85, 25), colors_eng, h_color_idx, "Horiz", lambda color, index=i: self.update_phase_color(index, 'horiz', color))
+                self.scrollable_panel.add_element(dd_h)
 
-                self.add_button((screen_config.width - UI_PANEL_WIDTH + 210, block_y - 2, 30, 22), "↑", lambda index=i: self.move_phase(index, -1))
-                self.add_button((screen_config.width - UI_PANEL_WIDTH + 245, block_y - 2, 30, 22), "↓", lambda index=i: self.move_phase(index, 1))
-                self.add_button((screen_config.width - UI_PANEL_WIDTH + 210, block_y + 21, 65, 22), "X", lambda index=i: self.delete_phase(index))
+                v_color_idx = colors_eng.index(phase['vert'])
+                dd_v = Dropdown((screen_config.width - UI_PANEL_WIDTH + 110, block_y + 18, 85, 25), colors_eng, v_color_idx, "Vert", lambda color, index=i: self.update_phase_color(index, 'vert', color))
+                self.scrollable_panel.add_element(dd_v)
+
+                btn3 = Button((screen_config.width - UI_PANEL_WIDTH + 210, block_y - 2, 30, 22), "↑", lambda index=i: self.move_phase(index, -1))
+                self.scrollable_panel.add_element(btn3)
+                btn4 = Button((screen_config.width - UI_PANEL_WIDTH + 245, block_y - 2, 30, 22), "↓", lambda index=i: self.move_phase(index, 1))
+                self.scrollable_panel.add_element(btn4)
+                btn5 = Button((screen_config.width - UI_PANEL_WIDTH + 210, block_y + 21, 65, 22), "X", lambda index=i: self.delete_phase(index))
+                self.scrollable_panel.add_element(btn5)
 
                 y_content_offset += 50
                 if open_dropdown_rect and open_dropdown_rect == dd_h.rect:
@@ -476,15 +656,10 @@ class UIManager:
                     dd_v.is_open = True
                     y_content_offset += dd_v.open_height
 
-            self.total_phases_height = y_content_offset
-            max_scroll = max(0, self.total_phases_height - self.phases_viewport_rect.height)
-            self.scroll_y = max(0, min(self.scroll_y, max_scroll))
-
-            self.add_button((screen_config.width - UI_PANEL_WIDTH + 50, self.phases_viewport_rect.bottom + 10, 200, 30), "Добавить", self.add_new_phase)
+            self.scrollable_panel.set_content_height(y_content_offset)
+            self.add_button((screen_config.width - UI_PANEL_WIDTH + 50, viewport_rect.bottom + 10, 200, 30), "Добавить фазу", self.add_new_phase)
         else:
-            self.phases_viewport_rect = None
-            self.total_phases_height = 0
-            self.scroll_y = 0
+            self.scrollable_panel = None
 
     def add_button(self, rect, text, callback):
         button = Button(rect, text, callback)
@@ -529,32 +704,11 @@ class UIManager:
             alpha = int(100 + 100 * pulse) if i == 1 else 80
             pygame.draw.rect(screen, (*neon_border, alpha), self.panel_rect, i)
 
-        # --- Element Segregation ---
-        non_scrollable_elements = []
-        scrollable_elements = []
-        if self.phases_viewport_rect:
-            for el in self.elements:
-                y = -1
-                if hasattr(el, 'rect'):  # Button, Dropdown
-                    y = el.rect.y
-                elif isinstance(el, dict):
-                    if 'pos' in el:  # text dict
-                        y = el['pos'][1]
-                    elif 'rect' in el:  # rect dict
-                        y = el['rect'].y
-
-                if y != -1 and y >= self.phases_viewport_rect.top:
-                    scrollable_elements.append(el)
-                else:
-                    non_scrollable_elements.append(el)
-        else:
-            non_scrollable_elements = self.elements
-
+        # Все элементы из self.elements - не прокручиваемые
         # --- Drawing Logic ---
-        original_clip = screen.get_clip()
 
         # 1. Draw non-scrollable elements
-        for element in non_scrollable_elements:
+        for element in self.elements:
             if hasattr(element, 'draw'):
                 element.draw(screen, self.font)
             elif isinstance(element, dict) and element.get('type') == 'text':
@@ -572,112 +726,72 @@ class UIManager:
                 # Белый текст сверху
                 screen.blit(text_surface, element['pos'])
 
-        # 2. Draw scrollable elements with clipping
-        if self.phases_viewport_rect:
-            screen.set_clip(self.phases_viewport_rect)
-
-            # Draw highlight rects first (background) с неоновым эффектом
-            for element in scrollable_elements:
-                 if isinstance(element, dict) and element.get('type') == 'rect':
-                    import math
-                    # Неоновая подсветка текущей фазы
-                    pulse = abs(math.sin(self.background_pulse * 2))
-                    neon_highlight = (100, 200, 255)
-
-                    # Свечение
-                    for i in range(6, 0, -1):
-                        alpha = int(30 * pulse * (1 - i / 6))
-                        glow_rect = element['rect'].inflate(i * 2, i * 2)
-                        glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
-                        pygame.draw.rect(glow_surf, (*neon_highlight, alpha), 
-                                       pygame.Rect(0, 0, glow_rect.width, glow_rect.height), 
-                                       border_radius=6)
-                        screen.blit(glow_surf, glow_rect.topleft)
-
-                    # Темный фон с неоновой окантовкой
-                    pygame.draw.rect(screen, (20, 20, 40), element['rect'], border_radius=4)
-                    pygame.draw.rect(screen, (*neon_highlight, int(150 + 100 * pulse)), element['rect'], 2, border_radius=4)
-
-            # Draw other scrollable elements on top
-            for element in scrollable_elements:
-                if isinstance(element, (Button, Dropdown)):
-                    element.draw(screen, self.font)
-                elif isinstance(element, dict) and element.get('type') == 'text':
-                    # Яркий контрастный текст
-                    neon_text_color = (0, 220, 255)
-                    text_shadow = self.font.render(element['text'], True, (0, 0, 0))
-                    text_glow = self.font.render(element['text'], True, neon_text_color)
-                    text_surface = self.font.render(element['text'], True, (255, 255, 255))
-
-                    # Тень для глубины
-                    screen.blit(text_shadow, (element['pos'][0] + 1, element['pos'][1] + 1))
-                    # Яркое неоновое свечение
-                    for offset in [(1, 0), (-1, 0), (0, 1), (0, -1), (1, 1), (-1, -1)]:
-                        screen.blit(text_glow, (element['pos'][0] + offset[0], element['pos'][1] + offset[1]))
-                    # Белый текст сверху
-                    screen.blit(text_surface, element['pos'])
-
-            screen.set_clip(original_clip)
-
-        # 3. Draw panel border and scrollbar on top (уже не нужна белая граница, есть неоновая)
-
-        if self.phases_viewport_rect and self.total_phases_height > self.phases_viewport_rect.height:
-            import math
-            pulse = abs(math.sin(self.background_pulse))
-
-            self.scrollbar_track_rect = pygame.Rect(self.phases_viewport_rect.right - 12, self.phases_viewport_rect.top, 10, self.phases_viewport_rect.height)
-            # Темный трек с неоновой окантовкой
-            pygame.draw.rect(screen, (15, 15, 30), self.scrollbar_track_rect, border_radius=5)
-            pygame.draw.rect(screen, (0, 150, 200, 100), self.scrollbar_track_rect, 1, border_radius=5)
-
-            viewable_ratio = self.phases_viewport_rect.height / self.total_phases_height
-            thumb_h = max(20, self.phases_viewport_rect.height * viewable_ratio)
-
-            scrollable_dist = self.total_phases_height - self.phases_viewport_rect.height
-            scroll_ratio = self.scroll_y / max(1, scrollable_dist)
-
-            thumb_y = self.scrollbar_track_rect.top + scroll_ratio * (self.scrollbar_track_rect.height - thumb_h)
-
-            self.scrollbar_thumb_rect = pygame.Rect(self.scrollbar_track_rect.x + 1, thumb_y, 8, thumb_h)
-
-            # Неоновый ползунок с свечением
-            neon_scrollbar = (0, 255, 200)
-            for i in range(3, 0, -1):
-                alpha = int(60 * (1 - i / 3))
-                glow_rect = self.scrollbar_thumb_rect.inflate(i * 2, 0)
-                glow_surf = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
-                pygame.draw.rect(glow_surf, (*neon_scrollbar, alpha), 
-                               pygame.Rect(0, 0, glow_rect.width, glow_rect.height), 
-                               border_radius=5)
-                screen.blit(glow_surf, glow_rect.topleft)
-
-            pygame.draw.rect(screen, neon_scrollbar, self.scrollbar_thumb_rect, border_radius=4)
-            pygame.draw.rect(screen, (150, 255, 255), self.scrollbar_thumb_rect, 1, border_radius=4)
+        # 2. Draw scrollable panel if exists
+        if self.scrollable_panel:
+            self.scrollable_panel.draw(screen, self.font, self.background_pulse)
 
     def handle_events(self, event):
-        if self.panel_rect.collidepoint(pygame.mouse.get_pos()):
+        # Обработка событий для ScrollablePanel
+        if self.scrollable_panel:
+            # Обработка прокрутки колесом мыши
             if event.type == pygame.MOUSEWHEEL:
-                self.scroll_y -= event.y * 20
-                self.rebuild_ui_elements()
-                return True
-            if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                if self.scrollbar_thumb_rect and self.scrollbar_thumb_rect.collidepoint(event.pos):
-                    self.is_dragging_scrollbar = True
-                    self.drag_start_y = event.pos[1]
-                    self.drag_start_scroll_y = self.scroll_y
+                if self.scrollable_panel.handle_wheel(event):
                     return True
-            if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
-                self.is_dragging_scrollbar = False
-            if event.type == pygame.MOUSEMOTION and self.is_dragging_scrollbar:
-                dy = event.pos[1] - self.drag_start_y
-                scroll_delta = dy * (self.total_phases_height / self.phases_viewport_rect.height)
-                self.scroll_y = self.drag_start_scroll_y + scroll_delta
-                self.rebuild_ui_elements()
+
+            # Обработка скроллбара (перетаскивание)
+            if self.scrollable_panel.handle_scrollbar_event(event):
                 return True
 
+            # Обработка hover для кнопок внутри scrollable panel
+            if event.type == pygame.MOUSEMOTION:
+                mouse_pos = pygame.mouse.get_pos()
+                # Проверяем, находится ли курсор в области viewport
+                if self.scrollable_panel.viewport_rect.collidepoint(mouse_pos):
+                    for element in self.scrollable_panel.elements:
+                        if isinstance(element, Button):
+                            # Создаем копию rect с учетом прокрутки
+                            scrolled_rect = element.rect.copy()
+                            scrolled_rect.y -= self.scrollable_panel.scroll_y
+                            # Проверяем hover с учетом прокрутки
+                            element.check_hover(mouse_pos if scrolled_rect.collidepoint(mouse_pos) else (-9999, -9999))
+
+            # Проверяем клики для элементов в scrollable panel
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = event.pos
+                if self.scrollable_panel.viewport_rect.collidepoint(mouse_pos):
+                    for element in self.scrollable_panel.elements:
+                        if isinstance(element, (Button, Dropdown)):
+                            # Создаем копию rect с учетом прокрутки
+                            scrolled_rect = element.rect.copy()
+                            scrolled_rect.y -= self.scrollable_panel.scroll_y
+
+                            # Проверяем клик в прокрученной позиции
+                            if scrolled_rect.collidepoint(mouse_pos):
+                                # Создаем событие с виртуальной позицией
+                                adjusted_event = pygame.event.Event(event.type, event.dict)
+                                adjusted_event.pos = mouse_pos
+
+                                # Временно подменяем rect элемента
+                                original_rect = element.rect
+                                element.rect = scrolled_rect
+
+                                result = element.handle_event(adjusted_event)
+
+                                # Восстанавливаем оригинальный rect
+                                element.rect = original_rect
+
+                                if result:
+                                    if isinstance(element, Dropdown):
+                                        pass
+
+                                        #self.rebuild_ui_elements()
+                                    return True
+
+        # Обработка hover для обычных элементов
         if event.type == pygame.MOUSEMOTION:
             for element in self.elements:
-                if isinstance(element, Button): element.check_hover(event.pos)
+                if isinstance(element, Button):
+                    element.check_hover(event.pos)
 
         # Открытый дропдаун получает приоритет
         active_dropdown = next((el for el in self.elements if isinstance(el, Dropdown) and el.is_open), None)
@@ -692,12 +806,13 @@ class UIManager:
             if active_input.handle_event(event):
                 return True
 
-        # Общая обработка для всех остальных элементов (в основном, клики)
+        # Общая обработка для всех остальных элементов
         for element in self.elements:
-            if element != active_dropdown:  # Не обрабатывать снова
+            if element != active_dropdown:
                 if hasattr(element, 'handle_event'):
                     if element.handle_event(event):
-                        if isinstance(element, Dropdown): self.rebuild_ui_elements()
+                        if isinstance(element, Dropdown):
+                            self.rebuild_ui_elements()
                         return True
         return False
 
@@ -712,6 +827,22 @@ class UIManager:
         new_density = max(0.0, current_density + delta) # Плотность может быть 0
         self.sim.controller.traffic_density[direction] = round(new_density, 1)
         self.rebuild_ui_elements()
+
+    def zoom_in(self):
+        """Увеличивает масштаб отображения симуляции."""
+        from constants import screen_config
+        # Увеличиваем zoom_level, который будет использован при отрисовке
+        self.zoom_level = min(3.0, self.zoom_level + 0.1)
+
+    def zoom_out(self):
+        """Уменьшает масштаб отображения симуляции."""
+        from constants import screen_config
+        # Уменьшаем zoom_level, который будет использован при отрисовке
+        self.zoom_level = max(0.5, self.zoom_level - 0.1)
+
+    def zoom_reset(self):
+        """Сбрасывает масштаб к значению по умолчанию."""
+        self.zoom_level = 1.0
 
     def toggle_pause(self): self.sim.toggle_pause()
     def update_phase_color(self, i, d, c): self.sim.controller.update_phase_color(i, d, c); self.rebuild_ui_elements()

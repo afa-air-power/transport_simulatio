@@ -178,6 +178,8 @@ class PathGenerator:
         # ════════════════════════════════════════════════════════
         elif from_direction == 'from_north':
             # Входящие полосы севера: X = +30 (lane 0) или X = +10 (lane 1)
+            # lane 0 -> X = 40 - 0.5*20 = 30, lane 1 -> X = 40 - 1.5*20 = 10
+            # Север движется ВНИЗ, справа от центральной линии
             entry_x = road_half - (lane + 0.5) * LANE_WIDTH
 
             waypoints.append((entry_x, -entry_dist))
@@ -217,6 +219,8 @@ class PathGenerator:
         # ════════════════════════════════════════════════════════
         elif from_direction == 'from_south':
             # Входящие полосы юга: X = -30 (lane 0) или X = -10 (lane 1)
+            # Юг движется ВВЕРХ, слева от центральной линии
+            # lane 0 -> X = -40 + 0.5*20 = -30, lane 1 -> X = -40 + 1.5*20 = -10
             entry_x = -road_half + (lane + 0.5) * LANE_WIDTH
 
             waypoints.append((entry_x, entry_dist))
@@ -259,7 +263,8 @@ class PathGenerator:
 # =============================
 class Car:
     """Представляет одно транспортное средство, следующее по waypoints."""
-    SAFE_DISTANCE = 40  # Безопасное расстояние до впереди идущей машины
+    SAFE_DISTANCE = 15  # Минимальное безопасное расстояние до впереди идущей машины (между бамперами)
+    COMFORTABLE_DISTANCE = 30  # Комфортная дистанция для движения
     WAYPOINT_REACH_DISTANCE = 15  # Расстояние для достижения waypoint
     LANE_CHANGE_DISTANCE = 50  # Минимальное расстояние для безопасного перестроения
 
@@ -275,8 +280,9 @@ class Car:
         self.waypoints = waypoints
         self.current_waypoint_index = 0
         self.pos = list(waypoints[0])
-        self.speed = speed
-        self.current_speed = speed
+        self.max_speed = 200  # Максимальная скорость
+        self.speed = speed * 0.5  # Начальная скорость (50% от максимальной)
+        self.current_speed = self.speed
         self.color = color
         self.neon_color = self.generate_neon_color(color)
         self.from_direction = from_direction
@@ -319,7 +325,7 @@ class Car:
         return [1, 0]
 
     def _move_towards_waypoint(self, dt, speed):
-        """Двигается к текущему waypoint."""
+        """Двигается к текущему waypoint с проверкой стоп-линии."""
         if self.current_waypoint_index >= len(self.waypoints):
             return False  # Достигли конца пути
 
@@ -339,31 +345,138 @@ class Car:
         if dist > 0:
             self.heading = [dx / dist, dy / dist]
             move_dist = min(speed * dt, dist)
-            self.pos[0] += self.heading[0] * move_dist
-            self.pos[1] += self.heading[1] * move_dist
+
+            # Вычисляем новую позицию
+            new_x = self.pos[0] + self.heading[0] * move_dist
+            new_y = self.pos[1] + self.heading[1] * move_dist
+
+            # АБСОЛЮТНАЯ БЛОКИРОВКА: не пересекаем стоп-линию при is_waiting
+            road_half = (NUM_LANES * LANE_WIDTH) / 2
+            stop_line_margin = 2.0  # Остановка за 2 единицы до стоп-линии
+
+            # Проверяем горизонтальное движение
+            if abs(self.heading[0]) > abs(self.heading[1]):
+                if self.heading[0] > 0:  # Движение на восток
+                    stop_line = -road_half - stop_line_margin
+                    # Уже за стоп-линией или пытаемся пересечь её
+                    if self.pos[0] >= stop_line:
+                        # Уже проехали или на стоп-линии - не двигаемся дальше
+                        if self.is_waiting:
+                            self.speed = 0
+                            return True
+                    elif new_x > stop_line:
+                        # Пытаемся пересечь стоп-линию
+                        if self.is_waiting:
+                            # Останавливаемся точно перед стоп-линией
+                            self.pos[0] = stop_line
+                            self.speed = 0
+                            return True
+                        else:
+                            # Зеленый свет - можем проехать
+                            self.pos[0] = new_x
+                            self.pos[1] = new_y
+                            return True
+                else:  # Движение на запад
+                    stop_line = road_half + stop_line_margin
+                    if self.pos[0] <= stop_line:
+                        if self.is_waiting:
+                            self.speed = 0
+                            return True
+                    elif new_x < stop_line:
+                        if self.is_waiting:
+                            self.pos[0] = stop_line
+                            self.speed = 0
+                            return True
+                        else:
+                            self.pos[0] = new_x
+                            self.pos[1] = new_y
+                            return True
+
+            # Проверяем вертикальное движение
+            else:
+                if self.heading[1] > 0:  # Движение на юг
+                    stop_line = -road_half - stop_line_margin
+                    if self.pos[1] >= stop_line:
+                        if self.is_waiting:
+                            self.speed = 0
+                            return True
+                    elif new_y > stop_line:
+                        if self.is_waiting:
+                            self.pos[1] = stop_line
+                            self.speed = 0
+                            return True
+                        else:
+                            self.pos[0] = new_x
+                            self.pos[1] = new_y
+                            return True
+                else:  # Движение на север
+                    stop_line = road_half + stop_line_margin
+                    if self.pos[1] <= stop_line:
+                        if self.is_waiting:
+                            self.speed = 0
+                            return True
+                    elif new_y < stop_line:
+                        if self.is_waiting:
+                            self.pos[1] = stop_line
+                            self.speed = 0
+                            return True
+                        else:
+                            self.pos[0] = new_x
+                            self.pos[1] = new_y
+                            return True
+
+            # Обычное движение (не пересекаем стоп-линию)
+            self.pos[0] = new_x
+            self.pos[1] = new_y
 
         return True
 
     def _check_traffic_light(self, controller):
         """Проверяет, нужно ли остановиться на светофоре."""
         road_half = (NUM_LANES * LANE_WIDTH) / 2
-        stop_distance = 20
+        stop_distance = 200  # Увеличена дистанция обнаружения
 
-        # Проверяем только перед перекрестком
-        if self.current_waypoint_index >= len(self.waypoints) - 2:
-            return False  # Уже проехали перекресток
-
-        # Определяем направление движения
+        # Определяем направление движения и получаем цвет светофора
         if abs(self.heading[0]) > abs(self.heading[1]):  # Горизонтальное
             light_color = controller.get_color('horizontal')
-            in_stop_zone = (-road_half - stop_distance < self.pos[0] < -road_half + 10 and self.heading[0] > 0) or \
-                          (road_half - 10 < self.pos[0] < road_half + stop_distance and self.heading[0] < 0)
+            # Проверяем, находимся ли перед перекрестком
+            if self.heading[0] > 0:  # Движение на восток
+                # Машина ПЕРЕД перекрестком (слева от него)
+                in_stop_zone = self.pos[0] < -road_half and self.pos[0] > -road_half - stop_distance
+            else:  # Движение на запад
+                # Машина ПЕРЕД перекрестком (справа от него)
+                in_stop_zone = self.pos[0] > road_half and self.pos[0] < road_half + stop_distance
         else:  # Вертикальное
             light_color = controller.get_color('vertical')
-            in_stop_zone = (-road_half - stop_distance < self.pos[1] < -road_half + 10 and self.heading[1] > 0) or \
-                          (road_half - 10 < self.pos[1] < road_half + stop_distance and self.heading[1] < 0)
+            # Проверяем, находимся ли перед перекрестком
+            if self.heading[1] > 0:  # Движение на юг
+                # Машина ПЕРЕД перекрестком (сверху от него)
+                in_stop_zone = self.pos[1] < -road_half and self.pos[1] > -road_half - stop_distance
+            else:  # Движение на север
+                # Машина ПЕРЕД перекрестком (снизу от него)
+                in_stop_zone = self.pos[1] > road_half and self.pos[1] < road_half + stop_distance
 
         return in_stop_zone and light_color in ['red', 'yellow']
+
+    def _get_distance_to_stopline(self):
+        """Вычисляет расстояние до стоп-линии перед светофором."""
+        road_half = (NUM_LANES * LANE_WIDTH) / 2
+        # Стоп-линия находится точно на границе перекрестка
+
+        if abs(self.heading[0]) > abs(self.heading[1]):  # Горизонтальное движение
+            if self.heading[0] > 0:  # Движение на восток
+                # Стоп-линия на -road_half
+                return -road_half - self.pos[0]
+            else:  # Движение на запад
+                # Стоп-линия на road_half
+                return self.pos[0] - road_half
+        else:  # Вертикальное движение
+            if self.heading[1] > 0:  # Движение на юг
+                # Стоп-линия на -road_half
+                return -road_half - self.pos[1]
+            else:  # Движение на север
+                # Стоп-линия на road_half
+                return self.pos[1] - road_half
 
     def _find_car_ahead(self, all_cars):
         """Находит ближайшую машину впереди на том же пути."""
@@ -374,21 +487,35 @@ class Car:
             if other is self:
                 continue
 
-            # Проверяем, едет ли в том же направлении
+            # Проверяем, едет ли примерно в том же направлении
             dot_product = self.heading[0] * other.heading[0] + self.heading[1] * other.heading[1]
-            if dot_product < 0.7:  # Не в том же направлении
+            if dot_product < 0.5:  # Более мягкий критерий для учета поворачивающих машин
                 continue
 
-            # Вычисляем расстояние
+            # Вычисляем расстояние от центра до центра
             dx = other.pos[0] - self.pos[0]
             dy = other.pos[1] - self.pos[1]
-            dist = math.hypot(dx, dy)
+            dist_center_to_center = math.hypot(dx, dy)
 
-            # Машина должна быть впереди
+            # Машина должна быть впереди (строго в направлении движения)
             forward_dot = dx * self.heading[0] + dy * self.heading[1]
-            if forward_dot > 0 and dist < min_dist:
-                min_dist = dist
-                car_ahead = other
+
+            # Проверяем, что машина на нашей полосе или близко к ней
+            # Поперечное смещение не должно быть слишком большим
+            lateral_offset = abs(dx * self.heading[1] - dy * self.heading[0])
+
+            if forward_dot > 0 and lateral_offset < LANE_WIDTH * 1.5:
+                # Вычисляем реальное расстояние с учетом длины машин
+                # Расстояние от переда нашей машины до задней части машины впереди
+                our_half_length = (self.length * 2.5) / 2  # Половина длины нашей машины
+                other_half_length = (other.length * 2.5) / 2  # Половина длины машины впереди
+
+                # Реальное расстояние между бамперами
+                real_distance = dist_center_to_center - our_half_length - other_half_length
+
+                if real_distance < min_dist:
+                    min_dist = max(0, real_distance)  # Не может быть отрицательным
+                    car_ahead = other
 
         return car_ahead, min_dist
 
@@ -405,32 +532,127 @@ class Car:
         """Обновляет позицию автомобиля, следуя по waypoints."""
         self.glow_pulse += dt * 3
 
-        effective_speed = self.speed
-        was_waiting = self.is_waiting
-        self.is_waiting = False
+        # Параметры разгона/торможения
+        acceleration = 12.0  # м/с² - ускорение разгона
+        deceleration = 30.0  # м/с² - ускорение торможения
+        emergency_deceleration = 60.0  # м/с² - экстренное торможение
+
+        target_speed = self.max_speed
+        should_stop = False
+        reason = None  # 'light' или 'car' - причина торможения
 
         # Проверяем светофор
-        if self._check_traffic_light(controller):
-            effective_speed = 0
-            self.is_waiting = True
+        light_is_red = self._check_traffic_light(controller)
+        dist_to_stopline = self._get_distance_to_stopline() if light_is_red else float('inf')
 
         # Проверяем машину впереди
-        if not self.is_waiting:
-            car_ahead, dist_ahead = self._find_car_ahead(all_cars)
+        car_ahead, dist_ahead = self._find_car_ahead(all_cars)
 
-            if car_ahead and dist_ahead < self.SAFE_DISTANCE:
-                effective_speed = 0
-                self.is_waiting = True
-            elif car_ahead and dist_ahead < self.SAFE_DISTANCE * 2:
-                # Плавное торможение
-                slow_factor = (dist_ahead - self.SAFE_DISTANCE) / self.SAFE_DISTANCE
-                effective_speed *= max(0.3, slow_factor)
+        # Определяем ближайшее препятствие (светофор или машина)
+        closest_obstacle_dist = float('inf')
 
-        # Обновляем время ожидания
+        if light_is_red and dist_to_stopline > 0:
+            closest_obstacle_dist = dist_to_stopline
+            reason = 'light'
+
+        if car_ahead and dist_ahead < closest_obstacle_dist:
+            closest_obstacle_dist = dist_ahead
+            reason = 'car'
+
+        # Рассчитываем необходимую скорость на основе ближайшего препятствия
+        if closest_obstacle_dist < float('inf'):
+            # КРИТИЧЕСКАЯ ПРОВЕРКА: если слишком близко - немедленная остановка
+            if closest_obstacle_dist <= self.SAFE_DISTANCE:
+                should_stop = True
+                target_speed = 0
+            else:
+                # Рассчитываем тормозной путь: v² = 2 * a * s
+                available_distance = closest_obstacle_dist - self.SAFE_DISTANCE
+                safe_speed = math.sqrt(2 * deceleration * available_distance)
+
+                # Плавное торможение с учетом типа препятствия
+                if reason == 'light':
+                    # Для светофора - плавное торможение издалека
+                    if closest_obstacle_dist > 120:
+                        target_speed = min(self.max_speed, safe_speed * 1.05)
+                    elif closest_obstacle_dist > 60:
+                        target_speed = min(self.max_speed * 0.6, safe_speed * 0.9)
+                    elif closest_obstacle_dist > 30:
+                        target_speed = safe_speed * 0.7
+                    else:
+                        target_speed = safe_speed * 0.5
+                else:  # reason == 'car'
+                    # АДАПТАЦИЯ К СКОРОСТИ МАШИНЫ ВПЕРЕДИ
+                    if car_ahead:
+                        leader_speed = car_ahead.speed
+
+                        # Если машина впереди движется
+                        if leader_speed > 5:
+                            # Пытаемся поддерживать комфортную дистанцию
+                            if closest_obstacle_dist > self.COMFORTABLE_DISTANCE * 2:
+                                # Далеко - можем ехать быстрее, но не сильно
+                                target_speed = min(leader_speed * 1.05, safe_speed, self.max_speed)
+                            elif closest_obstacle_dist > self.COMFORTABLE_DISTANCE:
+                                # Комфортная дистанция - едем со скоростью лидера
+                                target_speed = min(leader_speed, safe_speed)
+                            elif closest_obstacle_dist > self.SAFE_DISTANCE * 1.5:
+                                # Слишком близко - едем медленнее
+                                target_speed = min(leader_speed * 0.8, safe_speed * 0.8)
+                            else:
+                                # Очень близко - сильно тормозим
+                                target_speed = min(leader_speed * 0.5, safe_speed * 0.6)
+                        else:
+                            # Машина впереди стоит или почти стоит - останавливаемся в очереди
+                            if closest_obstacle_dist > self.COMFORTABLE_DISTANCE:
+                                target_speed = safe_speed * 0.7
+                            elif closest_obstacle_dist > self.SAFE_DISTANCE * 2:
+                                target_speed = safe_speed * 0.4
+                            else:
+                                # Подъезжаем к стоящей машине - плавная остановка
+                                target_speed = min(5, safe_speed * 0.3)
+                    else:
+                        target_speed = safe_speed * 0.8
+
+                # Ограничиваем минимальную скорость
+                if target_speed < 2 and closest_obstacle_dist > self.SAFE_DISTANCE * 1.8:
+                    target_speed = 2
+                elif target_speed < 2:
+                    target_speed = 0
+                    should_stop = True
+
+        # Обновляем состояние ожидания
+        self.is_waiting = should_stop
+
         if self.is_waiting:
             self.waiting_time += dt
         else:
             self.waiting_time = 0.0
+
+        # КРИТИЧЕСКАЯ ПРОВЕРКА: если препятствие слишком близко - принудительная остановка
+        if closest_obstacle_dist < self.SAFE_DISTANCE * 0.8:
+            self.speed = 0
+            should_stop = True
+            self.is_waiting = True
+
+        # Плавное изменение скорости
+        elif target_speed > self.speed:
+            # Разгон
+            self.speed = min(target_speed, self.speed + acceleration * dt)
+        elif target_speed < self.speed:
+            # Определяем нужное торможение
+            speed_diff = self.speed - target_speed
+
+            # Экстренное торможение при критической близости
+            if closest_obstacle_dist < self.SAFE_DISTANCE * 1.2:
+                self.speed = max(target_speed, self.speed - emergency_deceleration * dt)
+            elif closest_obstacle_dist < self.COMFORTABLE_DISTANCE:
+                # Усиленное торможение
+                self.speed = max(target_speed, self.speed - deceleration * 1.5 * dt)
+            else:
+                # Обычное торможение
+                self.speed = max(target_speed, self.speed - deceleration * dt)
+
+        effective_speed = self.speed
 
         # Двигаемся к следующему waypoint
         self._move_towards_waypoint(dt, effective_speed)
@@ -815,7 +1037,7 @@ class TrafficSimulation:
         car = Car(waypoints, speed, color, direction, turn_direction)
         self.cars.append(car)
 
-        print(f"Spawned car: {direction}, lane {lane}, turn {turn_direction}")
+        print(f"Spawned car: {direction}, lane {lane}, turn {turn_direction}, start pos: {waypoints[0]}, total waypoints: {len(waypoints)}")
 
     def spawn_pedestrian(self):
         road_half = (NUM_LANES * LANE_WIDTH) / 2

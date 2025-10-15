@@ -99,32 +99,32 @@ class PathGenerator:
         # ЗАПАД → ВОСТОК (слева направо, движение →)
         # ════════════════════════════════════════════════════════
         if from_direction == 'from_west':
-            # Входящие полосы: Y = -30 (lane 0) или Y = -10 (lane 1)
+            # Входящие полосы запада: Y = -30 (lane 0) или Y = -10 (lane 1)
             entry_y = -road_half + (lane + 0.5) * LANE_WIDTH
 
-            waypoints.append((-entry_dist, entry_y))  # Точка появления
-            waypoints.append((-road_half - 20, entry_y))  # Перед перекрёстком
+            waypoints.append((-entry_dist, entry_y))
+            waypoints.append((-road_half - 20, entry_y))
 
             if turn_direction == 'straight':
-                # ПРЯМО: запад → восток (продолжаем на той же Y)
+                # ПРЯМО → восток (остаёмся на той же полосе)
                 waypoints.append((road_half + 20, entry_y))
                 waypoints.append((entry_dist, entry_y))
 
             elif turn_direction == 'left':
-                # НАЛЕВО: запад → север (поворот вверх ↑)
-                # Выезжаем на исходящие полосы севера: X = -30 или -10
+                # НАЛЕВО → СЕВЕР (поворот вверх ↑)
+                # Север движется ВВЕРХ (от center вниз), исходящие: X = -30, -10
                 exit_x = -road_half + (lane + 0.5) * LANE_WIDTH
 
-                waypoints.append((-15, entry_y))  # Подъезд к повороту
-                waypoints.append((-5, -5))  # Точка поворота
-                waypoints.append((exit_x, -15))  # Выход из поворота
-                waypoints.append((exit_x, -road_half - 20))  # После перекрёстка
-                waypoints.append((exit_x, -entry_dist))  # Уход за экран
+                waypoints.append((-15, entry_y))
+                waypoints.append((-5, -5))
+                waypoints.append((exit_x, -15))
+                waypoints.append((exit_x, -road_half - 20))
+                waypoints.append((exit_x, -entry_dist))
 
             elif turn_direction == 'right':
-                # НАПРАВО: запад → юг (поворот вниз ↓)
-                # Выезжаем на исходящие полосы юга: X = +30 или +10
-                exit_x = road_half - (lane + 0.5) * LANE_WIDTH
+                # НАПРАВО → ЮГ (поворот вниз ↓)
+                # Юг движется ВНИЗ (от center вверх), исходящие: X = +10, +30
+                exit_x = road_half - ((LANES_PER_DIRECTION - 1 - lane) + 0.5) * LANE_WIDTH
 
                 waypoints.append((-15, entry_y))
                 waypoints.append((-5, 5))
@@ -136,21 +136,21 @@ class PathGenerator:
         # ВОСТОК → ЗАПАД (справа налево, движение ←)
         # ════════════════════════════════════════════════════════
         elif from_direction == 'from_east':
-            # Входящие полосы: Y = +30 (lane 0) или Y = +10 (lane 1)
-            entry_y = road_half - (lane + 0.5) * LANE_WIDTH
+            # Входящие полосы востока: Y = +10 (lane 0) или Y = +30 (lane 1)
+            entry_y = road_half - ((LANES_PER_DIRECTION - 1 - lane) + 0.5) * LANE_WIDTH
 
             waypoints.append((entry_dist, entry_y))
             waypoints.append((road_half + 20, entry_y))
 
             if turn_direction == 'straight':
-                # ПРЯМО: восток → запад
+                # ПРЯМО → запад
                 waypoints.append((-road_half - 20, entry_y))
                 waypoints.append((-entry_dist, entry_y))
 
             elif turn_direction == 'left':
-                # НАЛЕВО: восток → юг (поворот вниз ↓)
-                # Выезжаем на исходящие полосы юга: X = +30 или +10
-                exit_x = road_half - (lane + 0.5) * LANE_WIDTH
+                # НАЛЕВО → ЮГ (поворот вниз ↓)
+                # Юг движется ВНИЗ, исходящие: X = +10, +30
+                exit_x = road_half - ((LANES_PER_DIRECTION - 1 - lane) + 0.5) * LANE_WIDTH
 
                 waypoints.append((15, entry_y))
                 waypoints.append((5, 5))
@@ -159,8 +159,8 @@ class PathGenerator:
                 waypoints.append((exit_x, entry_dist))
 
             elif turn_direction == 'right':
-                # НАПРАВО: восток → север (поворот вверх ↑)
-                # Выезжаем на исходящие полосы севера: X = -30 или -10
+                # НАПРАВО → СЕВЕР (поворот вверх ↑)
+                # Север движется ВВЕРХ, исходящие: X = -30, -10
                 exit_x = -road_half + (lane + 0.5) * LANE_WIDTH
 
                 waypoints.append((15, entry_y))
@@ -173,21 +173,21 @@ class PathGenerator:
         # СЕВЕР → ЮГ (сверху вниз, движение ↓)
         # ════════════════════════════════════════════════════════
         elif from_direction == 'from_north':
-            # Входящие полосы: X = +30 (lane 0) или X = +10 (lane 1)
-            entry_x = road_half - (lane + 0.5) * LANE_WIDTH
+            # Входящие полосы севера: X = +10 (lane 0) или X = +30 (lane 1)
+            entry_x = road_half - ((LANES_PER_DIRECTION - 1 - lane) + 0.5) * LANE_WIDTH
 
             waypoints.append((entry_x, -entry_dist))
             waypoints.append((entry_x, -road_half - 20))
 
             if turn_direction == 'straight':
-                # ПРЯМО: север → юг
+                # ПРЯМО → юг
                 waypoints.append((entry_x, road_half + 20))
                 waypoints.append((entry_x, entry_dist))
 
             elif turn_direction == 'left':
-                # НАЛЕВО: север → восток (поворот направо →)
-                # Выезжаем на исходящие полосы востока: Y = +30 или +10
-                exit_y = road_half - (lane + 0.5) * LANE_WIDTH
+                # НАЛЕВО → ВОСТОК (поворот направо →)
+                # Восток движется ВЛЕВО, исходящие: Y = +10, +30
+                exit_y = road_half - ((LANES_PER_DIRECTION - 1 - lane) + 0.5) * LANE_WIDTH
 
                 waypoints.append((entry_x, -15))
                 waypoints.append((5, -5))
@@ -196,8 +196,8 @@ class PathGenerator:
                 waypoints.append((entry_dist, exit_y))
 
             elif turn_direction == 'right':
-                # НАПРАВО: север → запад (поворот налево ←)
-                # Выезжаем на исходящие полосы запада: Y = -30 или -10
+                # НАПРАВО → ЗАПАД (поворот налево ←)
+                # Запад движется ВПРАВО, исходящие: Y = -30, -10
                 exit_y = -road_half + (lane + 0.5) * LANE_WIDTH
 
                 waypoints.append((entry_x, -15))
@@ -210,20 +210,20 @@ class PathGenerator:
         # ЮГ → СЕВЕР (снизу вверх, движение ↑)
         # ════════════════════════════════════════════════════════
         elif from_direction == 'from_south':
-            # Входящие полосы: X = -30 (lane 0) или X = -10 (lane 1)
+            # Входящие полосы юга: X = -30 (lane 0) или X = -10 (lane 1)
             entry_x = -road_half + (lane + 0.5) * LANE_WIDTH
 
             waypoints.append((entry_x, entry_dist))
             waypoints.append((entry_x, road_half + 20))
 
             if turn_direction == 'straight':
-                # ПРЯМО: юг → север
+                # ПРЯМО → север
                 waypoints.append((entry_x, -road_half - 20))
                 waypoints.append((entry_x, -entry_dist))
 
             elif turn_direction == 'left':
-                # НАЛЕВО: юг → запад (поворот налево ←)
-                # Выезжаем на исходящие полосы запада: Y = -30 или -10
+                # НАЛЕВО → ЗАПАД (поворот налево ←)
+                # Запад движется ВПРАВО, исходящие: Y = -30, -10
                 exit_y = -road_half + (lane + 0.5) * LANE_WIDTH
 
                 waypoints.append((entry_x, 15))
@@ -233,9 +233,9 @@ class PathGenerator:
                 waypoints.append((-entry_dist, exit_y))
 
             elif turn_direction == 'right':
-                # НАПРАВО: юг → восток (поворот направо →)
-                # Выезжаем на исходящие полосы востока: Y = +30 или +10
-                exit_y = road_half - (lane + 0.5) * LANE_WIDTH
+                # НАПРАВО → ВОСТОК (поворот направо →)
+                # Восток движется ВЛЕВО, исходящие: Y = +10, +30
+                exit_y = road_half - ((LANES_PER_DIRECTION - 1 - lane) + 0.5) * LANE_WIDTH
 
                 waypoints.append((entry_x, 15))
                 waypoints.append((5, 5))

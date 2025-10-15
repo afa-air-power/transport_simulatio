@@ -7,21 +7,301 @@ from traffic_controller import TrafficController
 
 
 # =============================
+#  СИСТЕМА ПУТЕЙ (WAYPOINTS)
+# =============================
+class PathGenerator:
+    """Генерирует пути для машин на основе полосы и направления поворота."""
+
+    @staticmethod
+    def generate_waypoints(from_direction, lane, turn_direction):
+        """
+        Создает список контрольных точек для заданного маршрута.
+
+        Args:
+            from_direction: 'from_west', 'from_east', 'from_north', 'from_south'
+            lane: 0 или 1 (номер полосы в направлении)  
+            turn_direction: 'straight', 'left', 'right'
+
+        Returns:
+            List of (x, y) waypoints
+        """
+        road_half = (NUM_LANES * LANE_WIDTH) / 2
+        entry_dist = 500  # Дистанция появления
+
+        # Рассчитываем смещение для полосы
+        # Для 2 полос в каждом направлении (NUM_LANES=4)
+        # lane 0: первая полоса направления
+        # lane 1: вторая полоса направления
+        lane_offset = -road_half + (lane + 0.5) * LANE_WIDTH
+
+        waypoints = []
+
+        if from_direction == 'from_west':
+            # Движение слева направо (на восток)
+            waypoints.append((-entry_dist, lane_offset))
+            waypoints.append((-road_half - 20, lane_offset))
+
+            if turn_direction == 'straight':
+                waypoints.append((road_half + 20, lane_offset))
+                waypoints.append((entry_dist, lane_offset))
+
+            elif turn_direction == 'left':
+                # Поворот налево (на север, вверх)
+                waypoints.append((-10, lane_offset))
+                waypoints.append((0, 0))
+                waypoints.append((lane_offset, -10))
+                waypoints.append((lane_offset, -road_half - 20))
+                waypoints.append((lane_offset, -entry_dist))
+
+            elif turn_direction == 'right':
+                # Поворот направо (на юг, вниз)
+                waypoints.append((-10, lane_offset))
+                waypoints.append((0, road_half / 2))
+                waypoints.append((-lane_offset, road_half + 10))
+                waypoints.append((-lane_offset, entry_dist))
+
+        elif from_direction == 'from_east':
+            # Движение справа налево (на запад)
+            # Используем противоположные полосы
+            opposite_lane_offset = road_half - (lane + 0.5) * LANE_WIDTH
+            waypoints.append((entry_dist, opposite_lane_offset))
+            waypoints.append((road_half + 20, opposite_lane_offset))
+
+            if turn_direction == 'straight':
+                waypoints.append((-road_half - 20, opposite_lane_offset))
+                waypoints.append((-entry_dist, opposite_lane_offset))
+
+            elif turn_direction == 'left':
+                # Поворот налево (на юг, вниз)
+                waypoints.append((10, opposite_lane_offset))
+                waypoints.append((0, road_half / 2))
+                waypoints.append((-opposite_lane_offset, road_half + 10))
+                waypoints.append((-opposite_lane_offset, entry_dist))
+
+            elif turn_direction == 'right':
+                # Поворот направо (на север, вверх)
+                waypoints.append((10, opposite_lane_offset))
+                waypoints.append((0, 0))
+                waypoints.append((opposite_lane_offset, -10))
+                waypoints.append((opposite_lane_offset, -entry_dist))
+
+        elif from_direction == 'from_north':
+            # Движение сверху вниз (на юг)
+            waypoints.append((lane_offset, -entry_dist))
+            waypoints.append((lane_offset, -road_half - 20))
+
+            if turn_direction == 'straight':
+                waypoints.append((lane_offset, road_half + 20))
+                waypoints.append((lane_offset, entry_dist))
+
+            elif turn_direction == 'left':
+                # Поворот налево (на восток, направо)
+                waypoints.append((lane_offset, -10))
+                waypoints.append((0, 0))
+                waypoints.append((10, -lane_offset))
+                waypoints.append((road_half + 10, -lane_offset))
+                waypoints.append((entry_dist, -lane_offset))
+
+            elif turn_direction == 'right':
+                # Поворот направо (на запад, налево)
+                waypoints.append((lane_offset, -10))
+                waypoints.append((0, 0))
+                waypoints.append((-10, lane_offset))
+                waypoints.append((-road_half - 10, lane_offset))
+                waypoints.append((-entry_dist, lane_offset))
+
+        elif from_direction == 'from_south':
+            # Движение снизу вверх (на север)
+            opposite_lane_offset = road_half - (lane + 0.5) * LANE_WIDTH
+            waypoints.append((opposite_lane_offset, entry_dist))
+            waypoints.append((opposite_lane_offset, road_half + 20))
+
+            if turn_direction == 'straight':
+                waypoints.append((opposite_lane_offset, -road_half - 20))
+                waypoints.append((opposite_lane_offset, -entry_dist))
+
+            elif turn_direction == 'left':
+                # Поворот налево (на запад, налево)
+                waypoints.append((opposite_lane_offset, 10))
+                waypoints.append((0, 0))
+                waypoints.append((-10, -opposite_lane_offset))
+                waypoints.append((-road_half - 10, -opposite_lane_offset))
+                waypoints.append((-entry_dist, -opposite_lane_offset))
+
+            elif turn_direction == 'right':
+                # Поворот направо (на восток, направо)
+                waypoints.append((opposite_lane_offset, 10))
+                waypoints.append((road_half / 2, 0))
+                waypoints.append((road_half + 10, opposite_lane_offset))
+                waypoints.append((entry_dist, opposite_lane_offset))
+
+        return waypoints
+
+
+# =============================
 #  КЛАСС МАШИНЫ
 # =============================
 class Car:
-    """Представляет одно транспортное средство в симуляции."""
-    SAFE_DISTANCE = 35  # Увеличенное расстояние между машинами
-    LANE_CHANGE_DISTANCE = 50  # Дистанция для безопасного перестроения
+    """Генерирует пути для машин на основе полосы и направления поворота."""
 
-    def __init__(self, pos, heading, speed, color):
-        self.pos = list(pos)
-        self.heading = list(heading)
+    @staticmethod
+    def generate_waypoints(from_direction, lane, turn_direction):
+        """
+        Создает список контрольных точек для заданного маршрута.
+
+        Args:
+            from_direction: 'from_west', 'from_east', 'from_north', 'from_south'
+            lane: 0 или 1 (номер полосы в направлении)
+            turn_direction: 'straight', 'left', 'right'
+
+        Returns:
+            List of (x, y) waypoints
+        """
+        road_half = (NUM_LANES * LANE_WIDTH) / 2
+        entry_dist = 500  # Дистанция появления
+
+        # Рассчитываем Y-смещение для полосы (горизонтальное движение)
+        # или X-смещение (вертикальное движение)
+        lane_offset = -road_half + (lane + 0.5) * LANE_WIDTH
+
+        waypoints = []
+
+        if from_direction == 'from_west':
+            # Машина едет СЛЕВА направо (на восток)
+            # Стартовая точка слева
+            waypoints.append((-entry_dist, lane_offset))
+
+            # Точка перед перекрестком
+            waypoints.append((-road_half - 20, lane_offset))
+
+            if turn_direction == 'straight':
+                # Прямо через перекресток
+                waypoints.append((road_half + 20, lane_offset))
+                waypoints.append((entry_dist, lane_offset))
+
+            elif turn_direction == 'left':
+                # Поворот налево (вверх)
+                waypoints.append((-10, lane_offset))
+                waypoints.append((0, 0))
+                waypoints.append((lane_offset, -10))
+                waypoints.append((lane_offset, -road_half - 20))
+                waypoints.append((lane_offset, -entry_dist))
+
+            elif turn_direction == 'right':
+                # Поворот направо (вниз)
+                waypoints.append((-10, lane_offset))
+                waypoints.append((0, 0))
+                waypoints.append((-lane_offset, 10))
+                waypoints.append((-lane_offset, road_half + 20))
+                waypoints.append((-lane_offset, entry_dist))
+
+        elif from_direction == 'from_east':
+            # Машина едет СПРАВА налево (на запад)
+            waypoints.append((entry_dist, -lane_offset))
+            waypoints.append((road_half + 20, -lane_offset))
+
+            if turn_direction == 'straight':
+                waypoints.append((-road_half - 20, -lane_offset))
+                waypoints.append((-entry_dist, -lane_offset))
+
+            elif turn_direction == 'left':
+                # Поворот налево (вниз)
+                waypoints.append((10, -lane_offset))
+                waypoints.append((0, 0))
+                waypoints.append((-lane_offset, 10))
+                waypoints.append((-lane_offset, road_half + 20))
+                waypoints.append((-lane_offset, entry_dist))
+
+            elif turn_direction == 'right':
+                # Поворот направо (вверх)
+                waypoints.append((10, -lane_offset))
+                waypoints.append((0, 0))
+                waypoints.append((lane_offset, -10))
+                waypoints.append((lane_offset, -road_half - 20))
+                waypoints.append((lane_offset, -entry_dist))
+
+        elif from_direction == 'from_north':
+            # Машина едет СВЕРХУ вниз (на юг)
+            waypoints.append((lane_offset, -entry_dist))
+            waypoints.append((lane_offset, -road_half - 20))
+
+            if turn_direction == 'straight':
+                waypoints.append((lane_offset, road_half + 20))
+                waypoints.append((lane_offset, entry_dist))
+
+            elif turn_direction == 'left':
+                # Поворот налево (направо)
+                waypoints.append((lane_offset, -10))
+                waypoints.append((0, 0))
+                waypoints.append((10, -lane_offset))
+                waypoints.append((road_half + 20, -lane_offset))
+                waypoints.append((entry_dist, -lane_offset))
+
+            elif turn_direction == 'right':
+                # Поворот направо (налево)
+                waypoints.append((lane_offset, -10))
+                waypoints.append((0, 0))
+                waypoints.append((-10, lane_offset))
+                waypoints.append((-road_half - 20, lane_offset))
+                waypoints.append((-entry_dist, lane_offset))
+
+        elif from_direction == 'from_south':
+            # Машина едет СНИЗУ вверх (на север)
+            waypoints.append((-lane_offset, entry_dist))
+            waypoints.append((-lane_offset, road_half + 20))
+
+            if turn_direction == 'straight':
+                waypoints.append((-lane_offset, -road_half - 20))
+                waypoints.append((-lane_offset, -entry_dist))
+
+            elif turn_direction == 'left':
+                # Поворот налево (налево)
+                waypoints.append((-lane_offset, 10))
+                waypoints.append((0, 0))
+                waypoints.append((-10, lane_offset))
+                waypoints.append((-road_half - 20, lane_offset))
+                waypoints.append((-entry_dist, lane_offset))
+
+            elif turn_direction == 'right':
+                # Поворот направо (направо)
+                waypoints.append((-lane_offset, 10))
+                waypoints.append((0, 0))
+                waypoints.append((10, -lane_offset))
+                waypoints.append((road_half + 20, -lane_offset))
+                waypoints.append((entry_dist, -lane_offset))
+
+        return waypoints
+
+
+# =============================
+#  КЛАСС МАШИНЫ
+# =============================
+class Car:
+    """Представляет одно транспортное средство, следующее по waypoints."""
+    SAFE_DISTANCE = 40  # Безопасное расстояние до впереди идущей машины
+    WAYPOINT_REACH_DISTANCE = 15  # Расстояние для достижения waypoint
+    LANE_CHANGE_DISTANCE = 50  # Минимальное расстояние для безопасного перестроения
+
+    def __init__(self, waypoints, speed, color, from_direction, turn_direction):
+        """
+        Args:
+            waypoints: Список контрольных точек [(x, y), ...]
+            speed: Скорость движения
+            color: Цвет машины
+            from_direction: Направление въезда
+            turn_direction: Направление поворота
+        """
+        self.waypoints = waypoints
+        self.current_waypoint_index = 0
+        self.pos = list(waypoints[0])
         self.speed = speed
+        self.current_speed = speed
         self.color = color
         self.neon_color = self.generate_neon_color(color)
+        self.from_direction = from_direction
+        self.turn_direction = turn_direction
 
-        # Разнообразие размеров машин
+        # Размеры машины
         car_type = random.choice(['small', 'medium', 'large'])
         if car_type == 'small':
             self.length = 8
@@ -29,37 +309,107 @@ class Car:
         elif car_type == 'medium':
             self.length = 12
             self.width = 6
-        else:  # large
+        else:
             self.length = 16
             self.width = 7
 
+        # Состояние
         self.waiting_time = 0.0
         self.is_waiting = False
-
-        # Логика поворотов - улучшенная система
-        self.turn_direction = random.choice(['straight', 'left', 'right'])
-        self.is_turning = False
-        self.turn_progress = 0.0
-        self.turn_center = None
-        self.turn_start_angle = 0.0
-        self.original_heading = list(heading)
-
-        # Плавность поворота (очень плавная)
-        self.target_heading = list(heading)
-        self.heading_interpolation = 0.08  # Уменьшено для большей плавности
-
-        # Анимация неонового свечения
         self.glow_pulse = random.uniform(0, math.pi * 2)
 
-        # Система перестроения
-        self.current_lane = 0
-        self.target_lane = 0
-        self.is_changing_lane = False
-        self.lane_change_progress = 0.0
-        self.lane_change_start_pos = [0, 0]
-        self.lane_change_target_offset = 0
-        self.last_lane_change_time = 0
-        self.lane_change_cooldown = 3.0  # Секунды между перестроениями
+        # Вычисляем начальное направление
+        self.heading = self._calculate_heading()
+
+    def _calculate_heading(self):
+        """Вычисляет направление движения к следующему waypoint."""
+        if self.current_waypoint_index >= len(self.waypoints) - 1:
+            return [1, 0]  # Default
+
+        current = self.waypoints[self.current_waypoint_index]
+        next_wp = self.waypoints[self.current_waypoint_index + 1]
+
+        dx = next_wp[0] - current[0]
+        dy = next_wp[1] - current[1]
+        dist = math.hypot(dx, dy)
+
+        if dist > 0:
+            return [dx / dist, dy / dist]
+        return [1, 0]
+
+    def _move_towards_waypoint(self, dt, speed):
+        """Двигается к текущему waypoint."""
+        if self.current_waypoint_index >= len(self.waypoints):
+            return False  # Достигли конца пути
+
+        target = self.waypoints[self.current_waypoint_index]
+        dx = target[0] - self.pos[0]
+        dy = target[1] - self.pos[1]
+        dist = math.hypot(dx, dy)
+
+        # Достигли текущего waypoint?
+        if dist < self.WAYPOINT_REACH_DISTANCE:
+            self.current_waypoint_index += 1
+            if self.current_waypoint_index < len(self.waypoints):
+                self.heading = self._calculate_heading()
+            return True
+
+        # Двигаемся к waypoint
+        if dist > 0:
+            self.heading = [dx / dist, dy / dist]
+            move_dist = min(speed * dt, dist)
+            self.pos[0] += self.heading[0] * move_dist
+            self.pos[1] += self.heading[1] * move_dist
+
+        return True
+
+    def _check_traffic_light(self, controller):
+        """Проверяет, нужно ли остановиться на светофоре."""
+        road_half = (NUM_LANES * LANE_WIDTH) / 2
+        stop_distance = 20
+
+        # Проверяем только перед перекрестком
+        if self.current_waypoint_index >= len(self.waypoints) - 2:
+            return False  # Уже проехали перекресток
+
+        # Определяем направление движения
+        if abs(self.heading[0]) > abs(self.heading[1]):  # Горизонтальное
+            light_color = controller.get_color('horizontal')
+            in_stop_zone = (-road_half - stop_distance < self.pos[0] < -road_half + 10 and self.heading[0] > 0) or \
+                          (road_half - 10 < self.pos[0] < road_half + stop_distance and self.heading[0] < 0)
+        else:  # Вертикальное
+            light_color = controller.get_color('vertical')
+            in_stop_zone = (-road_half - stop_distance < self.pos[1] < -road_half + 10 and self.heading[1] > 0) or \
+                          (road_half - 10 < self.pos[1] < road_half + stop_distance and self.heading[1] < 0)
+
+        return in_stop_zone and light_color in ['red', 'yellow']
+
+    def _find_car_ahead(self, all_cars):
+        """Находит ближайшую машину впереди на том же пути."""
+        min_dist = float('inf')
+        car_ahead = None
+
+        for other in all_cars:
+            if other is self:
+                continue
+
+            # Проверяем, едет ли в том же направлении
+            dot_product = self.heading[0] * other.heading[0] + self.heading[1] * other.heading[1]
+            if dot_product < 0.7:  # Не в том же направлении
+                continue
+
+            # Вычисляем расстояние
+            dx = other.pos[0] - self.pos[0]
+            dy = other.pos[1] - self.pos[1]
+            dist = math.hypot(dx, dy)
+
+            # Машина должна быть впереди
+            forward_dot = dx * self.heading[0] + dy * self.heading[1]
+            if forward_dot > 0 and dist < min_dist:
+                min_dist = dist
+                car_ahead = other
+
+        return car_ahead, min_dist
 
     @staticmethod
     def generate_neon_color(base_color):
@@ -67,97 +417,41 @@ class Car:
         return tuple(min(255, c + 100) for c in base_color)
 
     def update(self, dt, controller, all_cars):
-        """Обновляет позицию автомобиля, учитывая светофоры и дистанцию."""
+        """Обновляет позицию автомобиля, следуя по waypoints."""
         self.glow_pulse += dt * 3
-        self.last_lane_change_time += dt
-
-        road_half = (NUM_LANES * LANE_WIDTH) / 2
-        stop_buffer = 15
-        stop_pos = road_half + stop_buffer
 
         effective_speed = self.speed
         was_waiting = self.is_waiting
         self.is_waiting = False
 
-        # Проверяем светофор (если не поворачиваем)
-        if not self.is_turning:
-            if abs(self.heading[0]) > abs(self.heading[1]):
-                light = controller.get_color('horizontal')
-                if light in ['red', 'yellow']:
-                    if self.heading[0] > 0 and -stop_pos < self.pos[0] < -road_half:
-                        effective_speed = 0
-                        self.is_waiting = True
-                    elif self.heading[0] < 0 and road_half < self.pos[0] < stop_pos:
-                        effective_speed = 0
-                        self.is_waiting = True
-            else:
-                light = controller.get_color('vertical')
-                if light in ['red', 'yellow']:
-                    if self.heading[1] > 0 and -stop_pos < self.pos[1] < -road_half:
-                        effective_speed = 0
-                        self.is_waiting = True
-                    elif self.heading[1] < 0 and road_half < self.pos[1] < stop_pos:
-                        effective_speed = 0
-                        self.is_waiting = True
+        # Проверяем светофор
+        if self._check_traffic_light(controller):
+            effective_speed = 0
+            self.is_waiting = True
 
-        # Проверяем дистанцию до впереди идущих машин и возможность перестроения
-        if not self.is_turning and not self.is_changing_lane:
-            car_ahead = None
-            min_distance = float('inf')
+        # Проверяем машину впереди
+        if not self.is_waiting:
+            car_ahead, dist_ahead = self._find_car_ahead(all_cars)
 
-            for other in all_cars:
-                if other is self:
-                    continue
-
-                if (abs(self.heading[0] - other.heading[0]) < 0.1 and
-                    abs(self.heading[1] - other.heading[1]) < 0.1):
-
-                    dx = other.pos[0] - self.pos[0]
-                    dy = other.pos[1] - self.pos[1]
-                    dist = math.hypot(dx, dy)
-
-                    # проверяем, впереди ли машина
-                    forward = (dx * self.heading[0] + dy * self.heading[1]) > 0
-                    if forward and dist < min_distance:
-                        min_distance = dist
-                        car_ahead = other
-
-            # Если машина слишком близко, тормозим или пытаемся перестроиться
-            if car_ahead and min_distance < self.SAFE_DISTANCE:
+            if car_ahead and dist_ahead < self.SAFE_DISTANCE:
                 effective_speed = 0
                 self.is_waiting = True
-
-                # Пытаемся перестроиться, если возможно
-                if self.last_lane_change_time > self.lane_change_cooldown:
-                    self.try_lane_change(all_cars)
-            elif car_ahead and min_distance < self.SAFE_DISTANCE * 2:
-                # Замедляемся, если машина впереди на средней дистанции
-                effective_speed *= 0.5
+            elif car_ahead and dist_ahead < self.SAFE_DISTANCE * 2:
+                # Плавное торможение
+                slow_factor = (dist_ahead - self.SAFE_DISTANCE) / self.SAFE_DISTANCE
+                effective_speed *= max(0.3, slow_factor)
 
         # Обновляем время ожидания
         if self.is_waiting:
             self.waiting_time += dt
-        elif was_waiting and not self.is_waiting:
+        else:
             self.waiting_time = 0.0
 
-        # Проверяем начало поворота
-        if not self.is_turning and not self.is_waiting and not self.is_changing_lane:
-            self.check_start_turn()
+        # Двигаемся к следующему waypoint
+        self._move_towards_waypoint(dt, effective_speed)
 
-        # Обновляем позицию
-        if self.is_changing_lane:
-            self.update_lane_change(dt, effective_speed)
-        elif self.is_turning:
-            self.update_turn(dt, effective_speed)
-        else:
-            # Плавная интерполяция направления для более естественного движения
-            self.heading[0] += (self.target_heading[0] - self.heading[0]) * self.heading_interpolation
-            self.heading[1] += (self.target_heading[1] - self.heading[1]) * self.heading_interpolation
-
-            self.pos[0] += self.heading[0] * effective_speed * dt
-            self.pos[1] += self.heading[1] * effective_speed * dt
-
-    def try_lane_change(self, all_cars):
+    # Удаляем старые методы перестроения и поворотов
+    # def try_lane_change(self, all_cars):
         """Пытается выполнить перестроение на соседнюю полосу."""
         if NUM_LANES < 2:
             return
@@ -516,30 +810,27 @@ class TrafficSimulation:
         self.paused = not self.paused
 
     def spawn_car(self, direction):
-        from constants import screen_config
-        road_half = (NUM_LANES * LANE_WIDTH) / 2
-        entry_dist = (screen_config.sim_width / 2) + 50
+        """Создает машину с waypoint-based маршрутом."""
+        # Выбираем случайную полосу (0 или 1 для каждого направления)
+        lane = random.randint(0, 1)
 
-        # Случайная полоса для спавна
-        lane = random.randint(0, NUM_LANES - 1)
-        lane_offset = -road_half + lane * LANE_WIDTH + LANE_WIDTH / 2
+        # Выбираем направление поворота с вероятностями
+        turn_direction = random.choices(
+            ['straight', 'left', 'right'],
+            weights=[0.6, 0.2, 0.2]
+        )[0]
 
-        if direction == 'from_west':
-            pos = (-entry_dist, lane_offset)
-            heading = (1, 0)
-        elif direction == 'from_east':
-            pos = (entry_dist, -lane_offset)
-            heading = (-1, 0)
-        elif direction == 'from_north':
-            pos = (lane_offset, -entry_dist)
-            heading = (0, 1)
-        else:
-            pos = (-lane_offset, entry_dist)
-            heading = (0, -1)
+        # Генерируем путь
+        waypoints = PathGenerator.generate_waypoints(direction, lane, turn_direction)
 
+        # Создаем машину
         speed = random.uniform(SPEED_MIN, SPEED_MAX)
         color = random.choice([RED, GREEN, BLUE, YELLOW, WHITE])
-        self.cars.append(Car(pos, heading, speed / 5, color))
+
+        car = Car(waypoints, speed, color, direction, turn_direction)
+        self.cars.append(car)
+
+        print(f"Spawned car: {direction}, lane {lane}, turn {turn_direction}")
 
     def spawn_pedestrian(self):
         road_half = (NUM_LANES * LANE_WIDTH) / 2

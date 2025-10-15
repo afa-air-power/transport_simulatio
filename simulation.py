@@ -397,6 +397,10 @@ class Car:
         """Генерирует яркий неоновый цвет на основе базового."""
         return tuple(min(255, c + 100) for c in base_color)
 
+    def is_path_completed(self):
+        """Проверяет, завершен ли путь машины."""
+        return self.current_waypoint_index >= len(self.waypoints)
+
     def update(self, dt, controller, all_cars):
         """Обновляет позицию автомобиля, следуя по waypoints."""
         self.glow_pulse += dt * 3
@@ -900,7 +904,8 @@ class TrafficSimulation:
         from constants import screen_config
         limit_x = (screen_config.sim_width / 2) + 100
         limit_y = (screen_config.sim_height / 2) + 100
-        self.cars = [c for c in self.cars if -limit_x < c.pos[0] < limit_x and -limit_y < c.pos[1] < limit_y]
+        # Удаляем машины, которые завершили свой путь или вышли за пределы экрана
+        self.cars = [c for c in self.cars if not c.is_path_completed() and -limit_x < c.pos[0] < limit_x and -limit_y < c.pos[1] < limit_y]
         self.peds[:] = [p for p in self.peds if math.hypot(p.pos[0] - p.goal[0], p.pos[1] - p.goal[1]) > 5]
 
     def draw(self, screen):

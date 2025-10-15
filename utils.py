@@ -50,19 +50,16 @@ class Crosswalk:
                 pygame.draw.rect(screen, stripe_color, 
                                (center_x - offset, center_y - 34, stripe_width, 68))
 
-def draw_roads(screen, center_x, center_y):
-    """
-    Рисует дороги с двунаправленным движением (4 полосы на каждой дороге).
-    """
+def draw_roads(screen, center_x, center_y, num_lanes):
     from constants import screen_config
-    road_width = NUM_LANES * LANE_WIDTH
+    road_width = num_lanes * LANE_WIDTH
 
-    # Темный фон
+    # Темный фон (почти черный с фиолетовым оттенком)
     bg_color = (10, 5, 20)
     screen.fill(bg_color, (0, 0, screen_config.sim_width, screen_config.sim_height))
 
-    # Звездное небо
-    for _ in range(250):
+    # Добавляем звездное небо / частицы
+    for _ in range(300):
         x = random.randint(0, screen_config.sim_width)
         y = random.randint(0, screen_config.sim_height)
         brightness = random.randint(100, 255)
@@ -74,7 +71,7 @@ def draw_roads(screen, center_x, center_y):
         ])
         pygame.draw.circle(screen, star_color, (x, y), size)
 
-    # Тротуары в углах
+    # Тротуары в углах (темные с неоновой окантовкой)
     sidewalk_color = (20, 20, 30)
     sidewalk_glow = (100, 0, 255)
     corner_sidewalks = [
@@ -86,15 +83,18 @@ def draw_roads(screen, center_x, center_y):
 
     for rect in corner_sidewalks:
         pygame.draw.rect(screen, sidewalk_color, rect)
-        pygame.draw.rect(screen, sidewalk_glow, rect, 2)
+        # Неоновая окантовка тротуаров
+        pygame.draw.rect(screen, sidewalk_glow, rect, 3)
+        # Дополнительное свечение
+        pygame.draw.rect(screen, (*sidewalk_glow, 100), rect, 6)
 
-    # Дороги
+    # Дороги - темно-серые с синеватым оттенком
     road_color = (25, 28, 35)
 
     # Горизонтальная дорога
     pygame.draw.rect(screen, road_color, 
                     (0, center_y - road_width / 2, screen_config.sim_width, road_width))
-    # Края дороги
+    # Неоновая окантовка
     pygame.draw.line(screen, (0, 150, 255), (0, center_y - road_width / 2), 
                     (screen_config.sim_width, center_y - road_width / 2), 2)
     pygame.draw.line(screen, (0, 150, 255), (0, center_y + road_width / 2), 
@@ -103,62 +103,43 @@ def draw_roads(screen, center_x, center_y):
     # Вертикальная дорога
     pygame.draw.rect(screen, road_color, 
                     (center_x - road_width / 2, 0, road_width, screen_config.sim_height))
-    # Края дороги
+    # Неоновая окантовка
     pygame.draw.line(screen, (0, 150, 255), (center_x - road_width / 2, 0), 
                     (center_x - road_width / 2, screen_config.sim_height), 2)
     pygame.draw.line(screen, (0, 150, 255), (center_x + road_width / 2, 0), 
                     (center_x + road_width / 2, screen_config.sim_height), 2)
 
-    # Центральная сплошная линия (разделяет встречные потоки)
-    center_line_color = (255, 200, 0)  # Желтая
-
-    # Горизонтальная центральная линия
-    pygame.draw.line(screen, center_line_color, 
-                    (0, center_y), 
-                    (center_x - road_width / 2, center_y), 3)
-    pygame.draw.line(screen, center_line_color, 
-                    (center_x + road_width / 2, center_y), 
-                    (screen_config.sim_width, center_y), 3)
-
-    # Вертикальная центральная линия
-    pygame.draw.line(screen, center_line_color, 
-                    (center_x, 0), 
-                    (center_x, center_y - road_width / 2), 3)
-    pygame.draw.line(screen, center_line_color, 
-                    (center_x, center_y + road_width / 2), 
-                    (center_x, screen_config.sim_height), 3)
-
-    # Разметка полос (пунктирная)
+    # Неоновая разметка полос (пунктирная)
     line_color = (0, 255, 200)
-    dash_length = 20
-    gap_length = 20
+    line_glow = (0, 200, 150, 100)
 
-    # Полосы на горизонтальной дороге (кроме центральной)
-    for i in [1, 3]:  # Линии между полосами в одном направлении
+    for i in range(1, num_lanes):
         y = center_y - road_width / 2 + i * LANE_WIDTH
-        x = 0
-        while x < screen_config.sim_width:
-            # Пропускаем зону перекрестка
-            if not (center_x - road_width / 2 - gap_length < x < center_x + road_width / 2 + gap_length):
-                pygame.draw.line(screen, line_color, 
-                               (x, y), (x + dash_length, y), 2)
-            x += dash_length + gap_length
+        for x_start in range(0, screen_config.sim_width, 40):
+            if not (center_x - road_width / 2 - 20 < x_start < center_x + road_width / 2):
+                # Свечение линии
+                for thickness in range(5, 0, -1):
+                    alpha = int(50 * (1 - thickness / 5))
+                    pygame.draw.line(screen, (*line_glow[:3], alpha), 
+                                   (x_start, y), (x_start + 20, y), thickness)
+                # Основная линия
+                pygame.draw.line(screen, line_color, (x_start, y), (x_start + 20, y), 2)
 
-    # Полосы на вертикальной дороге (кроме центральной)
-    for i in [1, 3]:
         x = center_x - road_width / 2 + i * LANE_WIDTH
-        y = 0
-        while y < screen_config.sim_height:
-            # Пропускаем зону перекрестка
-            if not (center_y - road_width / 2 - gap_length < y < center_y + road_width / 2 + gap_length):
-                pygame.draw.line(screen, line_color, 
-                               (x, y), (x, y + dash_length), 2)
-            y += dash_length + gap_length
+        for y_start in range(0, screen_config.sim_height, 40):
+            if not (center_y - road_width / 2 - 20 < y_start < center_y + road_width / 2):
+                # Свечение линии
+                for thickness in range(5, 0, -1):
+                    alpha = int(50 * (1 - thickness / 5))
+                    pygame.draw.line(screen, (*line_glow[:3], alpha), 
+                                   (x, y_start), (x, y_start + 20), thickness)
+                # Основная линия
+                pygame.draw.line(screen, line_color, (x, y_start), (x, y_start + 20), 2)
 
-    # Сетка на перекрестке
-    grid_color = (50, 0, 100)
-    grid_spacing = 15
-    for i in range(int(-road_width / 2), int(road_width / 2), grid_spacing):
+    # Неоновая сетка на перекрестке
+    grid_color = (50, 0, 100, 80)
+    grid_spacing = 10
+    for i in range(-int(road_width / 2), int(road_width / 2), grid_spacing):
         pygame.draw.line(screen, grid_color, 
                         (center_x + i, center_y - road_width / 2),
                         (center_x + i, center_y + road_width / 2), 1)
@@ -172,14 +153,22 @@ def draw_roads(screen, center_x, center_y):
     horizontal_crosswalk.draw(screen, center_x, center_y, road_width)
     vertical_crosswalk.draw(screen, center_x, center_y, road_width)
 
-def draw_entities(screen, sim, center_x, center_y):
-    """
-    Рисует все сущности симуляции (машины, пешеходы, светофоры).
+def draw_entities(screen, sim, center_x, center_y, zoom=1.0):
+    for c in sim.cars:
+        x = center_x + c.pos[0] * zoom
+        y = center_y + c.pos[1] * zoom
+        c.pos_temp = c.pos
+        c.pos = [x, y]
+        c.draw(screen)
+        c.pos = c.pos_temp
 
-    Args:
-        screen: Pygame surface
-        sim: Экземпляр TrafficSimulation
-        center_x, center_y: Координаты центра перекрестка
-    """
-    # Рисуем через метод draw симуляции
-    sim.draw(screen, center_x, center_y)
+    for p in sim.peds:
+        x = center_x + p.pos[0] * zoom
+        y = center_y + p.pos[1] * zoom
+        p.pos_temp = p.pos
+        p.pos = [x, y]
+        p.draw(screen)
+        p.pos = p.pos_temp
+
+    for light in sim.controller.lights.values():
+        light.draw(screen, center_x, center_y)

@@ -89,8 +89,8 @@ class TrafficController:
         self.dynamic_logic_factor = 0.99  # Фактор затухания для взвешенного штрафа
         self.weighted_h_penalty = 0.0
         self.weighted_v_penalty = 0.0
-        # Плотность трафика: машин в среднем за 10 секунд (только для въездов)
-        self.traffic_density = {d: 5.0 for d in DIR_INS}  # Все 8 направлений включены
+        # Плотность трафика: машин в среднем за 10 секунд
+        self.traffic_density = {d: 5.0 for d in DIR_INS}
 
         # Параметры дифференциального уравнения для динамического режима
         self.pressure_h = 0.0  # Давление горизонтального направления

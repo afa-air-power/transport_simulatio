@@ -1,10 +1,13 @@
 import json
+from pprint import pprint
+
 import demjson3
 import requests
 import os
 
 
 def generate_config_with_llm(llm_params: str):
+
     json_schema = {'schema': {'type': 'object', 'properties': {'mode': {
         'type': 'string', 'enum': ['static']}, 'phases': {'type':
                                                               'array',
@@ -57,26 +60,24 @@ THE DESCRIPTION OF THE PHASES SHOULD BE AS COMPLETE AND REALISTIC AS POSSIBLE FO
 
 ."""
 
-    }], 'temperature': 0, 'max_tokens': 2048, 'response_format': {
+    }], 'temperature': 0.2, 'max_tokens': 2048, 'response_format': {
         'type': 'json_schema', 'json_schema': json_schema}}
     headers = {'content-type': 'application/json'}
-    json_config = None
-    try:
-        lm_message = json.loads(requests.post(headers=headers, url=
-        'http://127.0.0.1:1234/v1/chat/completions', data=json.dumps(
-            json_request)).content.decode('utf-8'))['choices'][0]['message'][
-            'content']
 
-        try:
-            json_config = json.loads(lm_message)
-        except:
-            print(lm_message)
-            json_config = demjson3.decode(lm_message, strict=False)
-            print(json_config)
-    except:
+
+    request = requests.post(headers=headers, url=
+        'http://127.0.0.1:1234/v1/chat/completions', data=json.dumps(
+            json_request))
+    print(request.status_code)
+    if request.status_code!=200:
         os.system(R"%USERPROFILE%\.lmstudio\bin\lms.exe bootstrap")
         os.system("lms server start")
-        print("restart")
-        return generate_config_with_llm(llm_params)
+        request = requests.post(headers=headers, url=
+        'http://127.0.0.1:1234/v1/chat/completions', data=json.dumps(
+            json_request))
 
+    lm_message = json.loads(request.content.decode('utf-8'))['choices'][0]['message']['content']
+    json_config = json.loads(lm_message)
     return json_config
+if __name__ =='__main__':
+    pprint(generate_config_with_llm("test"))

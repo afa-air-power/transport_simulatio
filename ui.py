@@ -688,8 +688,14 @@ class UIManager:
             for i, phase in enumerate(self.sim.controller.phases):
                 block_y = phases_area_start_y + y_content_offset
 
+                # Конвертируем старый формат в новый при отображении
+                west = phase.get('west', phase.get('horiz', 'red'))
+                east = phase.get('east', phase.get('horiz', 'red'))
+                north = phase.get('north', phase.get('vert', 'red'))
+                south = phase.get('south', phase.get('vert', 'red'))
+
                 if i == self.sim.controller.current_phase:
-                    highlight_rect = pygame.Rect(screen_config.width - UI_PANEL_WIDTH + 10, block_y - 5, UI_PANEL_WIDTH - 20, 48)
+                    highlight_rect = pygame.Rect(screen_config.width - UI_PANEL_WIDTH + 10, block_y - 5, UI_PANEL_WIDTH - 20, 98)
                     self.scrollable_panel.add_element({'type': 'rect', 'rect': highlight_rect, 'color': (90, 90, 70)})
 
                 text_elem = {'type': 'text', 'pos': (screen_config.width - UI_PANEL_WIDTH + 20, block_y), 'text': f"Длительность: {phase['duration']}s"}
@@ -700,28 +706,36 @@ class UIManager:
                 btn2 = Button((screen_config.width - UI_PANEL_WIDTH + 180, block_y - 2, 25, 20), "-5", lambda index=i: self.change_phase_duration(index, -5))
                 self.scrollable_panel.add_element(btn2)
 
-                h_color_idx = colors_eng.index(phase['horiz'])
-                dd_h = Dropdown((screen_config.width - UI_PANEL_WIDTH + 20, block_y + 18, 85, 25), colors_eng, h_color_idx, "Horiz", lambda color, index=i: self.update_phase_color(index, 'horiz', color))
-                self.scrollable_panel.add_element(dd_h)
+                # Четыре dropdown для каждого направления
+                west_idx = colors_eng.index(west)
+                dd_west = Dropdown((screen_config.width - UI_PANEL_WIDTH + 20, block_y + 18, 60, 25), colors_eng, west_idx, "W", lambda color, index=i: self.update_phase_color(index, 'west', color))
+                self.scrollable_panel.add_element(dd_west)
 
-                v_color_idx = colors_eng.index(phase['vert'])
-                dd_v = Dropdown((screen_config.width - UI_PANEL_WIDTH + 110, block_y + 18, 85, 25), colors_eng, v_color_idx, "Vert", lambda color, index=i: self.update_phase_color(index, 'vert', color))
-                self.scrollable_panel.add_element(dd_v)
+                east_idx = colors_eng.index(east)
+                dd_east = Dropdown((screen_config.width - UI_PANEL_WIDTH + 85, block_y + 18, 60, 25), colors_eng, east_idx, "E", lambda color, index=i: self.update_phase_color(index, 'east', color))
+                self.scrollable_panel.add_element(dd_east)
 
-                btn3 = Button((screen_config.width - UI_PANEL_WIDTH + 210, block_y - 2, 30, 22), "↑", lambda index=i: self.move_phase(index, -1))
+                north_idx = colors_eng.index(north)
+                dd_north = Dropdown((screen_config.width - UI_PANEL_WIDTH + 150, block_y + 18, 60, 25), colors_eng, north_idx, "N", lambda color, index=i: self.update_phase_color(index, 'north', color))
+                self.scrollable_panel.add_element(dd_north)
+
+                south_idx = colors_eng.index(south)
+                dd_south = Dropdown((screen_config.width - UI_PANEL_WIDTH + 215, block_y + 18, 60, 25), colors_eng, south_idx, "S", lambda color, index=i: self.update_phase_color(index, 'south', color))
+                self.scrollable_panel.add_element(dd_south)
+
+                btn3 = Button((screen_config.width - UI_PANEL_WIDTH + 20, block_y + 48, 30, 22), "↑", lambda index=i: self.move_phase(index, -1))
                 self.scrollable_panel.add_element(btn3)
-                btn4 = Button((screen_config.width - UI_PANEL_WIDTH + 245, block_y - 2, 30, 22), "↓", lambda index=i: self.move_phase(index, 1))
+                btn4 = Button((screen_config.width - UI_PANEL_WIDTH + 55, block_y + 48, 30, 22), "↓", lambda index=i: self.move_phase(index, 1))
                 self.scrollable_panel.add_element(btn4)
-                btn5 = Button((screen_config.width - UI_PANEL_WIDTH + 210, block_y + 21, 65, 22), "X", lambda index=i: self.delete_phase(index))
+                btn5 = Button((screen_config.width - UI_PANEL_WIDTH + 210, block_y + 48, 65, 22), "X", lambda index=i: self.delete_phase(index))
                 self.scrollable_panel.add_element(btn5)
 
-                y_content_offset += 50
-                if open_dropdown_rect and open_dropdown_rect == dd_h.rect:
-                    dd_h.is_open = True
-                    y_content_offset += dd_h.open_height
-                if open_dropdown_rect and open_dropdown_rect == dd_v.rect:
-                    dd_v.is_open = True
-                    y_content_offset += dd_v.open_height
+                y_content_offset += 75
+                # Учитываем открытые dropdown
+                for dd in [dd_west, dd_east, dd_north, dd_south]:
+                    if open_dropdown_rect and open_dropdown_rect == dd.rect:
+                        dd.is_open = True
+                        y_content_offset += dd.open_height
 
             self.scrollable_panel.set_content_height(y_content_offset)
             self.add_button((screen_config.width - UI_PANEL_WIDTH + 50, viewport_rect.bottom + 10, 200, 30), "Добавить фазу", self.add_new_phase)

@@ -16,10 +16,12 @@ config_schema = {
                 "type": "object",
                 "properties": {
                     "duration": {"type": "number", "minimum": 1},
-                    "horiz": {"type": "string", "enum": ["green", "yellow", "red"]},
-                    "vert": {"type": "string", "enum": ["green", "yellow", "red"]}
+                    "west": {"type": "string", "enum": ["green", "yellow", "red"]},
+                    "east": {"type": "string", "enum": ["green", "yellow", "red"]},
+                    "north": {"type": "string", "enum": ["green", "yellow", "red"]},
+                    "south": {"type": "string", "enum": ["green", "yellow", "red"]}
                 },
-                "required": ["duration", "horiz", "vert"]
+                "required": ["duration", "west", "east", "north", "south"]
             },
             "minItems": 2
         },

@@ -474,23 +474,23 @@ class Car:
         road_half = (NUM_LANES * LANE_WIDTH) / 2
         stop_distance = 200  # Увеличена дистанция обнаружения
 
-        # Определяем направление движения и получаем цвет светофора
+        # Определяем направление движения и получаем цвет конкретного светофора
         if abs(self.heading[0]) > abs(self.heading[1]):  # Горизонтальное
-            light_color = controller.get_color('horizontal')
-            # Проверяем, находимся ли перед перекрестком
-            if self.heading[0] > 0:  # Движение на восток
+            if self.heading[0] > 0:  # Движение на восток (from_west)
+                light_color = controller.get_color('west')
                 # Машина ПЕРЕД перекрестком (слева от него)
                 in_stop_zone = self.pos[0] < -road_half and self.pos[0] > -road_half - stop_distance
-            else:  # Движение на запад
+            else:  # Движение на запад (from_east)
+                light_color = controller.get_color('east')
                 # Машина ПЕРЕД перекрестком (справа от него)
                 in_stop_zone = self.pos[0] > road_half and self.pos[0] < road_half + stop_distance
         else:  # Вертикальное
-            light_color = controller.get_color('vertical')
-            # Проверяем, находимся ли перед перекрестком
-            if self.heading[1] > 0:  # Движение на юг
+            if self.heading[1] > 0:  # Движение на юг (from_north)
+                light_color = controller.get_color('north')
                 # Машина ПЕРЕД перекрестком (сверху от него)
                 in_stop_zone = self.pos[1] < -road_half and self.pos[1] > -road_half - stop_distance
-            else:  # Движение на север
+            else:  # Движение на север (from_south)
+                light_color = controller.get_color('south')
                 # Машина ПЕРЕД перекрестком (снизу от него)
                 in_stop_zone = self.pos[1] > road_half and self.pos[1] < road_half + stop_distance
 

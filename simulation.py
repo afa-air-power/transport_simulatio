@@ -1,6 +1,8 @@
 import pygame
 import random
 import math
+
+import constants
 from constants import *
 from traffic_controller import TrafficController
 
@@ -102,10 +104,10 @@ class PathGenerator:
 
 
 class Car:
-    SAFE_DISTANCE = 15
-    COMFORTABLE_DISTANCE = 30
-    WAYPOINT_REACH_DISTANCE = 15
-    LANE_CHANGE_DISTANCE = 50
+    SAFE_DISTANCE = constants.SAFE_DISTANCE
+    COMFORTABLE_DISTANCE = constants.COMFORTABLE_DISTANCE
+    WAYPOINT_REACH_DISTANCE = constants.WAYPOINT_REACH_DISTANCE
+    LANE_CHANGE_DISTANCE = constants.LANE_CHANGE_DISTANCE
 
     def __init__(self, waypoints, speed, color, from_direction, turn_direction
         ):

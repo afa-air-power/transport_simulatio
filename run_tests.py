@@ -40,23 +40,23 @@ def check_dependencies():
     if missing_required:
         print(
             f"\n❌ Отсутствуют обязательные пакеты: {', '.join(missing_required)}"
-            )
+        )
         print('Установите их командой: pip install ' + ' '.join(
             missing_required))
         return False
     if missing_optional:
         print(
             f"\n⚠️  Отсутствуют опциональные пакеты: {', '.join(missing_optional)}"
-            )
+        )
         print('Для расширенных возможностей установите: pip install ' + ' '
-            .join(missing_optional))
+              .join(missing_optional))
     print('✅ Проверка зависимостей завершена')
     return True
 
 
 def run_unittest_tests():
     command = [sys.executable, '-m', 'unittest', 'discover', '-s', 'tests',
-        '-p', 'test_*.py', '-v']
+               '-p', 'test_*.py', '-v']
     return run_command(command, 'Запуск тестов через unittest')
 
 
@@ -70,13 +70,13 @@ def run_pytest_tests(args):
         try:
             __import__('coverage')
             command.extend(['--cov=.', '--cov-report=html',
-                '--cov-report=term'])
+                            '--cov-report=term'])
         except ImportError:
             print(
                 '⚠️  Модуль coverage не установлен. Покрытие кода недоступно.')
     if args.html_report:
         command.extend(['--html=reports/test_report.html',
-            '--self-contained-html'])
+                        '--self-contained-html'])
         os.makedirs('reports', exist_ok=True)
     command.append('tests/')
     return run_command(command, 'Запуск тестов через pytest')
@@ -113,22 +113,24 @@ def generate_test_report():
 
 
 def main():
+    import run_working_tests
+    run_working_tests.run_test()
     parser = argparse.ArgumentParser(description=
-        'Запуск автотестов Traffic Simulation')
+                                     'Запуск автотестов Traffic Simulation')
     parser.add_argument('--fast', action='store_true', help=
-        'Быстрые тесты (пропустить интеграционные и медленные)')
+    'Быстрые тесты (пропустить интеграционные и медленные)')
     parser.add_argument('--coverage', action='store_true', help=
-        'Запустить с анализом покрытия кода')
+    'Запустить с анализом покрытия кода')
     parser.add_argument('--html-report', action='store_true', help=
-        'Сгенерировать HTML отчет')
+    'Сгенерировать HTML отчет')
     parser.add_argument('--verbose', '-v', action='store_true', help=
-        'Подробный вывод')
+    'Подробный вывод')
     parser.add_argument('--runner', choices=['unittest', 'pytest', 'custom'
-        ], default='pytest', help='Выбор test runner')
+                                             ], default='pytest', help='Выбор test runner')
     parser.add_argument('--check-deps', action='store_true', help=
-        'Только проверить зависимости')
+    'Только проверить зависимости')
     parser.add_argument('--report-only', action='store_true', help=
-        'Только сгенерировать отчет о тестах')
+    'Только сгенерировать отчет о тестах')
     args = parser.parse_args()
     print('🚦 Traffic Simulation - Автотесты')
     print('=' * 50)
@@ -166,6 +168,9 @@ def main():
         print('Проверьте вывод выше для получения подробностей')
     print('=' * 50)
     return return_code
+
+
+
 
 
 if __name__ == '__main__':

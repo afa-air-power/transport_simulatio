@@ -72,12 +72,12 @@ class TrafficController:
     def reset_to_defaults(self):
         """Resets all settings and state to their default values."""
         self.phases = [
-            {'duration': 30, 'horiz': 'green', 'vert': 'red'},
-            {'duration': 3, 'horiz': 'yellow', 'vert': 'red'},
-            {'duration': 2, 'horiz': 'red', 'vert': 'red'},
-            {'duration': 30, 'vert': 'green', 'horiz': 'red'},
-            {'duration': 3, 'vert': 'yellow', 'horiz': 'red'},
-            {'duration': 2, 'vert': 'red', 'horiz': 'red'}
+            {'duration': 30, 'west': 'green', 'east': 'green', 'north': 'red', 'south': 'red'},
+            {'duration': 3, 'west': 'yellow', 'east': 'yellow', 'north': 'red', 'south': 'red'},
+            {'duration': 2, 'west': 'red', 'east': 'red', 'north': 'red', 'south': 'red'},
+            {'duration': 30, 'west': 'red', 'east': 'red', 'north': 'green', 'south': 'green'},
+            {'duration': 3, 'west': 'red', 'east': 'red', 'north': 'yellow', 'south': 'yellow'},
+            {'duration': 2, 'west': 'red', 'east': 'red', 'north': 'red', 'south': 'red'}
         ]
         self.current_phase = 0
         self.timer = 0
@@ -123,20 +123,40 @@ class TrafficController:
 
     def update_lights(self):
         phase = self.phases[self.current_phase]
-        h_color = phase['horiz']
-        v_color = phase['vert']
-        self.lights['h_left'].set_color(h_color)
-        self.lights['h_right'].set_color(h_color)
-        self.lights['v_top'].set_color(v_color)
-        self.lights['v_bottom'].set_color(v_color)
+        west_color = phase.get('west', phase.get('horiz', 'red'))  # Обратная совместимость
+        east_color = phase.get('east', phase.get('horiz', 'red'))
+        north_color = phase.get('north', phase.get('vert', 'red'))
+        south_color = phase.get('south', phase.get('vert', 'red'))
 
-    def get_color(self, road):
+        self.lights['h_left'].set_color(west_color)
+        self.lights['h_right'].set_color(east_color)
+        self.lights['v_top'].set_color(north_color)
+        self.lights['v_bottom'].set_color(south_color)
+
+    def get_color(self, direction):
+        """
+        Получает цвет светофора для конкретного направления.
+        direction: 'west', 'east', 'north', 'south', 'horizontal', 'vertical'
+        """
         phase = self.phases[self.current_phase]
-        return phase['horiz'] if road == 'horizontal' else phase['vert']
+
+        # Обратная совместимость со старым API
+        if direction == 'horizontal':
+            # Возвращаем цвет западного светофора (или первый горизонтальный)
+            return phase.get('west', phase.get('horiz', 'red'))
+        elif direction == 'vertical':
+            return phase.get('north', phase.get('vert', 'red'))
+
+        # Новый API - конкретное направление
+        return phase.get(direction, phase.get('horiz' if direction in ['west', 'east'] else 'vert', 'red'))
 
     def is_all_red(self):
         phase = self.phases[self.current_phase]
-        return phase['horiz'] == 'red' and phase['vert'] == 'red'
+        west = phase.get('west', phase.get('horiz', 'red'))
+        east = phase.get('east', phase.get('horiz', 'red'))
+        north = phase.get('north', phase.get('vert', 'red'))
+        south = phase.get('south', phase.get('vert', 'red'))
+        return west == 'red' and east == 'red' and north == 'red' and south == 'red'
 
     def get_ped_color(self, cross_road):
         return 'green' if self.is_all_red() else 'red'
@@ -172,12 +192,17 @@ class TrafficController:
 
             # При переключении на зеленый, сбрасываем "давление" этого направления
             new_phase_info = self.phases[self.current_phase]
-            if new_phase_info['horiz'] == 'green':
+            west = new_phase_info.get('west', new_phase_info.get('horiz', 'red'))
+            east = new_phase_info.get('east', new_phase_info.get('horiz', 'red'))
+            north = new_phase_info.get('north', new_phase_info.get('vert', 'red'))
+            south = new_phase_info.get('south', new_phase_info.get('vert', 'red'))
+
+            if west == 'green' or east == 'green':
                 self.weighted_h_penalty = 0
-                self.pressure_h = 0  # Сброс давления из дифференциального уравнения
-            if new_phase_info['vert'] == 'green':
+                self.pressure_h = 0
+            if north == 'green' or south == 'green':
                 self.weighted_v_penalty = 0
-                self.pressure_v = 0  # Сброс давления из дифференциального уравнения
+                self.pressure_v = 0
 
 
         self.update_lights()
@@ -231,8 +256,14 @@ class TrafficController:
         """
         current_phase_info = self.phases[self.current_phase]
 
-        is_h_green = current_phase_info['horiz'] == 'green'
-        is_v_green = current_phase_info['vert'] == 'green'
+        # Проверяем наличие зеленых светофоров (новый и старый формат)
+        west = current_phase_info.get('west', current_phase_info.get('horiz', 'red'))
+        east = current_phase_info.get('east', current_phase_info.get('horiz', 'red'))
+        north = current_phase_info.get('north', current_phase_info.get('vert', 'red'))
+        south = current_phase_info.get('south', current_phase_info.get('vert', 'red'))
+
+        is_h_green = west == 'green' or east == 'green'
+        is_v_green = north == 'green' or south == 'green'
 
         # Для желтых и чисто красных фаз используем их фиксированную длительность
         if not (is_h_green or is_v_green):
@@ -276,10 +307,14 @@ class TrafficController:
     def reorder_phases(self, new_order):
         self.phases = [self.phases[i] for i in new_order]
 
-    def add_phase(self, duration=10, horiz='red', vert='red'):
-        if horiz == 'green' and vert == 'green':
-            return False  # Invalid
-        self.phases.append({'duration': duration, 'horiz': horiz, 'vert': vert})
+    def add_phase(self, duration=10, west='red', east='red', north='red', south='red'):
+        self.phases.append({
+            'duration': duration, 
+            'west': west, 
+            'east': east, 
+            'north': north, 
+            'south': south
+        })
         return True
 
     def remove_phase(self, index):
@@ -294,10 +329,29 @@ class TrafficController:
         self.phases[index]['duration'] = max(1, new_duration)
 
     def update_phase_color(self, index, direction, color):
-        other_direction = 'vert' if direction == 'horiz' else 'horiz'
-        if color == 'green' and self.phases[index][other_direction] == 'green':
-            self.phases[index][other_direction] = 'red'
+        """
+        Обновляет цвет светофора для конкретного направления.
+        direction: 'west', 'east', 'north', 'south'
+        """
+        # Конвертируем старый формат в новый при необходимости
+        if 'horiz' in self.phases[index] or 'vert' in self.phases[index]:
+            self._convert_phase_to_new_format(index)
+
         self.phases[index][direction] = color
+
+    def _convert_phase_to_new_format(self, index):
+        """Конвертирует старый формат фазы (horiz/vert) в новый (west/east/north/south)"""
+        phase = self.phases[index]
+        if 'horiz' in phase or 'vert' in phase:
+            horiz_color = phase.get('horiz', 'red')
+            vert_color = phase.get('vert', 'red')
+            self.phases[index] = {
+                'duration': phase['duration'],
+                'west': horiz_color,
+                'east': horiz_color,
+                'north': vert_color,
+                'south': vert_color
+            }
 
     def move_phase(self, index, move_by):
         new_index = index + move_by

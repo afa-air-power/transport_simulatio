@@ -1116,7 +1116,6 @@ class TrafficSimulation:
         car = Car(waypoints, speed, color, direction, turn_direction)
         self.cars.append(car)
 
-        print(f"Spawned car: {direction}, lane {lane}, turn {turn_direction}, start pos: {waypoints[0]}, total waypoints: {len(waypoints)}")
 
     def spawn_pedestrian(self):
         road_half = (NUM_LANES * LANE_WIDTH) / 2

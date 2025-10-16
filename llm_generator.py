@@ -15,7 +15,7 @@ config_schema = {
             "items": {
                 "type": "object",
                 "properties": {
-                    "duration": {"type": "number", "minimum": 1},
+                    "duration": {"type": "number", "minimum": 1, "maximum": 355},
                     "west": {"type": "string", "enum": ["green", "yellow", "red"]},
                     "east": {"type": "string", "enum": ["green", "yellow", "red"]},
                     "north": {"type": "string", "enum": ["green", "yellow", "red"]},
@@ -32,16 +32,17 @@ config_schema = {
             "type": "object",
             "description": "Average number of cars to spawn per 10 seconds from each direction. Can be a float.",
             "properties": {
-                "from_west": {"type": "number", "minimum": 0},
-                "from_east": {"type": "number", "minimum": 0},
-                "from_north": {"type": "number", "minimum": 0},
-                "from_south": {"type": "number", "minimum": 0}
+                "from_west": {"type": "number", "minimum": 0, "maximum": 4.999},
+                "from_east": {"type": "number", "minimum": 0, "maximum": 4.999},
+                "from_north": {"type": "number", "minimum": 0, "maximum": 4.999},
+                "from_south": {"type": "number", "minimum": 0, "maximum": 4.999}
             },
             "required": ["from_west", "from_east", "from_north", "from_south"]
         }
     },
     "required": ["mode", "phases", "min_phase_time", "max_phase_time", "dynamic_logic_factor", "traffic_density"]
 }
+
 
 def generate_config_with_llm(scenario_description: str):
     """
@@ -68,13 +69,15 @@ JSON Schema to follow:
     }
 
     try:
-        response = requests.post(LLM_URL, headers=headers, json=data, timeout=120)
+        response = requests.post(LLM_URL, headers=headers, json=data, timeout=12000)
         response.raise_for_status()
     except requests.exceptions.RequestException as e:
         raise ConnectionError(f"Не удалось подключиться к LM Studio. Ошибка: {e}")
 
     try:
         llm_output = response.json()['choices'][0]['message']['content']
+        print(llm_output)
+
         # Более надежный способ извлечь JSON из ответа
         start_index = llm_output.find('{')
         end_index = llm_output.rfind('}')

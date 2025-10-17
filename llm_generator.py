@@ -7,7 +7,6 @@ import os
 
 
 def generate_config_with_llm(llm_params: str):
-
     json_schema = {'schema': {'type': 'object', 'properties': {'mode': {
         'type': 'string', 'enum': ['static']}, 'phases': {'type':
                                                               'array',
@@ -45,7 +44,7 @@ def generate_config_with_llm(llm_params: str):
                                                                                      'from_south']}},
                               'required': ['mode', 'phases', 'min_phase_time',
                                            'max_phase_time', 'dynamic_logic_factor', 'traffic_density']}}
-    json_request = {'model': 'qwen/qwen3-4b-thinking-2507', 'messages': [{
+    json_request = {'model': 'mistral-7b-instruct-v0.3', 'messages': [{
         'role': 'user', 'content':
             f"""You are an expert traffic engineer. Your task is to generate a JSON configuration object for a traffic simulator.
 This configuration must strictly adhere to the provided JSON Schema.
@@ -64,12 +63,11 @@ THE DESCRIPTION OF THE PHASES SHOULD BE AS COMPLETE AND REALISTIC AS POSSIBLE FO
         'type': 'json_schema', 'json_schema': json_schema}}
     headers = {'content-type': 'application/json'}
 
-
     request = requests.post(headers=headers, url=
-        'http://127.0.0.1:1234/v1/chat/completions', data=json.dumps(
-            json_request))
+    'http://127.0.0.1:1234/v1/chat/completions', data=json.dumps(
+        json_request))
     print(request.status_code)
-    if request.status_code!=200:
+    if request.status_code != 200:
         os.system(R"%USERPROFILE%\.lmstudio\bin\lms.exe bootstrap")
         os.system("lms server start")
         request = requests.post(headers=headers, url=
@@ -78,6 +76,12 @@ THE DESCRIPTION OF THE PHASES SHOULD BE AS COMPLETE AND REALISTIC AS POSSIBLE FO
 
     lm_message = json.loads(request.content.decode('utf-8'))['choices'][0]['message']['content']
     json_config = json.loads(lm_message)
+    mx = max([json_config["traffic_density"][a] for a in json_config["traffic_density"].keys()])
+    for c in json_config["traffic_density"].keys():
+        json_config["traffic_density"][c] /= mx
+        json_config["traffic_density"][c] = int(5 * json_config["traffic_density"][c])
     return json_config
-if __name__ =='__main__':
+
+
+if __name__ == '__main__':
     pprint(generate_config_with_llm("test"))

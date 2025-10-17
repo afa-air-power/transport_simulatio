@@ -103,14 +103,14 @@ class PathGenerator:
         return waypoints
 
 
-class Car(basic.basic_similation_element):
+class Car(basic.basic_similation_element,TrafficController):
     SAFE_DISTANCE = constants.SAFE_DISTANCE
     COMFORTABLE_DISTANCE = constants.COMFORTABLE_DISTANCE
     WAYPOINT_REACH_DISTANCE = constants.WAYPOINT_REACH_DISTANCE
     LANE_CHANGE_DISTANCE = constants.LANE_CHANGE_DISTANCE
 
     def __init__(self, waypoints, speed, color, from_direction, turn_direction):
-        super().__init__(__name__)
+
         self.waypoints = waypoints
         self.current_waypoint_index = 0
         self.pos = list(waypoints[0])
@@ -135,6 +135,7 @@ class Car(basic.basic_similation_element):
         self.is_waiting = False
         self.glow_pulse = random.uniform(0, math.pi * 2)
         self.heading = self._calculate_heading()
+        super().__init__()
 
     def _calculate_heading(self):
         if self.current_waypoint_index >= len(self.waypoints) - 1:
@@ -645,7 +646,7 @@ class Car(basic.basic_similation_element):
         screen.blit(rotated, rect)
 
 
-class Pedestrian(basic.basic_similation_element):
+class Pedestrian(basic.basic_similation_element,TrafficController):
 
     def __init__(self, pos, goal, speed, color, size):
         super().__init__()

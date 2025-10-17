@@ -71,15 +71,15 @@ THE DESCRIPTION OF THE PHASES SHOULD BE AS COMPLETE AND REALISTIC AS POSSIBLE FO
         os.system(R"%USERPROFILE%\.lmstudio\bin\lms.exe bootstrap")
         os.system("lms server start")
         request = requests.post(headers=headers, url=
-        'http://127.0.0.1:1234/v1/chat/completions', data=json.dumps(
-            json_request))
+        'http://127.0.0.1:1234/v1/chat/completions', data=json.dumps(json_request))
 
     lm_message = json.loads(request.content.decode('utf-8'))['choices'][0]['message']['content']
     json_config = json.loads(lm_message)
-    mx = max([json_config["traffic_density"][a] for a in json_config["traffic_density"].keys()])
-    for c in json_config["traffic_density"].keys():
-        json_config["traffic_density"][c] /= mx
-        json_config["traffic_density"][c] = int(50 * json_config["traffic_density"][c]) / 10
+    if False:
+        mx = max([json_config["traffic_density"][a] for a in json_config["traffic_density"].keys()])
+        for c in json_config["traffic_density"].keys():
+            json_config["traffic_density"][c] /= mx
+            json_config["traffic_density"][c] = int(50 * json_config["traffic_density"][c]) / 10
     return json_config
 
 

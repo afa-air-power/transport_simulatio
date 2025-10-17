@@ -36,11 +36,11 @@ class TrafficLight:
         self.orientation = orientation
         self.current_color = 'red'
         if orientation == 'vertical':
-            self.lenses = [LightLens(RED, (0, -20)), LightLens(YELLOW, (0, 
-                0)), LightLens(GREEN, (0, 20))]
+            self.lenses = [LightLens(RED, (0, -20)), LightLens(YELLOW, (0,
+                                                                        0)), LightLens(GREEN, (0, 20))]
         else:
-            self.lenses = [LightLens(RED, (-20, 0)), LightLens(YELLOW, (0, 
-                0)), LightLens(GREEN, (20, 0))]
+            self.lenses = [LightLens(RED, (-20, 0)), LightLens(YELLOW, (0,
+                                                                        0)), LightLens(GREEN, (20, 0))]
 
     def set_color(self, color):
         if self.current_color != color:
@@ -52,11 +52,11 @@ class TrafficLight:
     def draw(self, screen, center_x, center_y):
         base_pos = center_x + self.position[0], center_y + self.position[1]
         if self.orientation == 'vertical':
-            housing_rect = pygame.Rect(base_pos[0] - 10, base_pos[1] - 30, 
-                20, 60)
+            housing_rect = pygame.Rect(base_pos[0] - 10, base_pos[1] - 30,
+                                       20, 60)
         else:
-            housing_rect = pygame.Rect(base_pos[0] - 30, base_pos[1] - 10, 
-                60, 20)
+            housing_rect = pygame.Rect(base_pos[0] - 30, base_pos[1] - 10,
+                                       60, 20)
         pygame.draw.rect(screen, BLACK, housing_rect, border_radius=5)
         current_time = time.time()
         for lens in self.lenses:
@@ -73,14 +73,14 @@ class TrafficController:
 
     def reset_to_defaults(self):
         self.phases = [{'duration': 30, 'west': 'green', 'east': 'green',
-            'north': 'red', 'south': 'red'}, {'duration': 3, 'west':
+                        'north': 'red', 'south': 'red'}, {'duration': 3, 'west':
             'yellow', 'east': 'yellow', 'north': 'red', 'south': 'red'}, {
-            'duration': 2, 'west': 'red', 'east': 'red', 'north': 'red',
-            'south': 'red'}, {'duration': 30, 'west': 'red', 'east': 'red',
-            'north': 'green', 'south': 'green'}, {'duration': 3, 'west':
+                           'duration': 2, 'west': 'red', 'east': 'red', 'north': 'red',
+                           'south': 'red'}, {'duration': 30, 'west': 'red', 'east': 'red',
+                                             'north': 'green', 'south': 'green'}, {'duration': 3, 'west':
             'red', 'east': 'red', 'north': 'yellow', 'south': 'yellow'}, {
-            'duration': 2, 'west': 'red', 'east': 'red', 'north': 'red',
-            'south': 'red'}]
+                           'duration': 2, 'west': 'red', 'east': 'red', 'north': 'red',
+                           'south': 'red'}]
         self.current_phase = 0
         self.timer = 0
         self.mode = 'static'
@@ -107,10 +107,12 @@ class TrafficController:
         road_half = NUM_LANES * LANE_WIDTH / 2
         light_dist = screen_config.sim_width * 0.15
         self.lights = {'h_left': TrafficLight((-light_dist, -road_half - 10
-            ), 'horizontal'), 'h_right': TrafficLight((light_dist, 
-            road_half + 10), 'horizontal'), 'v_top': TrafficLight((
-            road_half + 10, -light_dist), 'vertical'), 'v_bottom':
-            TrafficLight((-road_half - 10, light_dist), 'vertical')}
+                                               ), 'horizontal'), 'h_right': TrafficLight((light_dist,
+                                                                                          road_half + 10),
+                                                                                         'horizontal'),
+                       'v_top': TrafficLight((
+                           road_half + 10, -light_dist), 'vertical'), 'v_bottom':
+                           TrafficLight((-road_half - 10, light_dist), 'vertical')}
 
     def update_lights(self):
         phase = self.phases[self.current_phase]
@@ -138,44 +140,45 @@ class TrafficController:
         east = phase.get('east', phase.get('horiz', 'red'))
         north = phase.get('north', phase.get('vert', 'red'))
         south = phase.get('south', phase.get('vert', 'red'))
-        return (west == 'red' and east == 'red' and north == 'red' and 
-            south == 'red')
+        return (west == 'red' and east == 'red' and north == 'red' and
+                south == 'red')
 
     def get_ped_color(self, cross_road):
         return 'green' if self.is_all_red() else 'red'
 
     def update(self, dt, waiting_h, waiting_v, h_penalty, v_penalty,
-        visible_cars_h=0, visible_cars_v=0):
+               visible_cars_h=0, visible_cars_v=0):
         self.timer += dt
         self.h_penalty = h_penalty
         self.v_penalty = v_penalty
         self.visible_cars_h = visible_cars_h
         self.visible_cars_v = visible_cars_v
         self.weighted_h_penalty = (self.weighted_h_penalty * self.
-            dynamic_logic_factor + self.h_penalty)
+                                   dynamic_logic_factor + self.h_penalty)
         self.weighted_v_penalty = (self.weighted_v_penalty * self.
-            dynamic_logic_factor + self.v_penalty)
+                                   dynamic_logic_factor + self.v_penalty)
         if self.mode == 'dynamic':
             self.solve_differential_equation(dt, waiting_h, waiting_v,
-                visible_cars_h, visible_cars_v)
+                                             visible_cars_h, visible_cars_v)
         should_switch = False
         if self.mode == 'dynamic':
             if self.evaluate_dynamic_switch():
                 should_switch = True
         elif self.timer >= self.phases[self.current_phase]['duration']:
-            should_switch = True
+            # should_switch = True
+            pass
         if should_switch:
             self.timer = 0
             self.current_phase = (self.current_phase + 1) % len(self.phases)
             new_phase_info = self.phases[self.current_phase]
             west = new_phase_info.get('west', new_phase_info.get('horiz',
-                'red'))
+                                                                 'red'))
             east = new_phase_info.get('east', new_phase_info.get('horiz',
-                'red'))
+                                                                 'red'))
             north = new_phase_info.get('north', new_phase_info.get('vert',
-                'red'))
+                                                                   'red'))
             south = new_phase_info.get('south', new_phase_info.get('vert',
-                'red'))
+                                                                   'red'))
             if west == 'green' or east == 'green':
                 self.weighted_h_penalty = 0
                 self.pressure_h = 0
@@ -185,7 +188,7 @@ class TrafficController:
         self.update_lights()
 
     def solve_differential_equation(self, dt, waiting_h, waiting_v,
-        visible_h, visible_v):
+                                    visible_h, visible_v):
         current_phase_info = self.phases[self.current_phase]
         is_h_green = current_phase_info['horiz'] == 'green'
         is_v_green = current_phase_info['vert'] == 'green'
@@ -214,22 +217,22 @@ class TrafficController:
             'vert', 'red'))
         is_h_green = west == 'green' or east == 'green'
         is_v_green = north == 'green' or south == 'green'
-        if not (is_h_green or is_v_green):
-            return self.timer >= current_phase_info['duration']
-        if self.timer < self.min_phase_time:
-            return False
-        if self.timer > self.max_phase_time:
-            return True
+        is_any_yellow = any([x == 'yellow' for x in [north, west, north, south]])
+        is_all_red=all([x == 'red' for x in [north, west, north, south]])
+
         if is_h_green:
-            pressure_diff = self.pressure_v - self.pressure_h
-            penalty_diff = self.weighted_v_penalty - self.weighted_h_penalty
-            combined_metric = pressure_diff * 0.6 + penalty_diff * 0.4
-            return combined_metric > self.switch_threshold
+            return self.pressure_v - self.pressure_h > 100
         if is_v_green:
-            pressure_diff = self.pressure_h - self.pressure_v
-            penalty_diff = self.weighted_h_penalty - self.weighted_v_penalty
-            combined_metric = pressure_diff * 0.6 + penalty_diff * 0.4
-            return combined_metric > self.switch_threshold
+            return self.pressure_h - self.pressure_v > 100
+
+        if is_any_yellow or is_all_red:
+            if not (is_h_green or is_v_green):
+                return self.timer >= current_phase_info['duration']
+            if self.timer < self.min_phase_time:
+                return False
+            if self.timer > self.max_phase_time:
+                return
+
         return False
 
     def set_mode(self, mode):
@@ -240,7 +243,7 @@ class TrafficController:
         self.phases = [self.phases[i] for i in new_order]
 
     def add_phase(self, duration=10, west='red', east='red', north='red',
-        south='red'):
+                  south='red'):
         self.phases.append({'duration': duration, 'west': west, 'east':
             east, 'north': north, 'south': south})
         return True
@@ -268,21 +271,21 @@ class TrafficController:
             vert_color = phase.get('vert', 'red')
             self.phases[index] = {'duration': phase['duration'], 'west':
                 horiz_color, 'east': horiz_color, 'north': vert_color,
-                'south': vert_color}
+                                  'south': vert_color}
 
     def move_phase(self, index, move_by):
         new_index = index + move_by
         if not (0 <= index < len(self.phases) and 0 <= new_index < len(self
-            .phases)):
+                                                                               .phases)):
             return
         self.phases.insert(new_index, self.phases.pop(index))
 
     def export_config_dict(self):
         return {'mode': self.mode, 'phases': self.phases, 'min_phase_time':
             self.min_phase_time, 'max_phase_time': self.max_phase_time,
-            'dynamic_logic_factor': self.dynamic_logic_factor,
-            'traffic_density': self.traffic_density, 'pressure_growth_rate':
-            self.pressure_growth_rate, 'pressure_decay_rate': self.
+                'dynamic_logic_factor': self.dynamic_logic_factor,
+                'traffic_density': self.traffic_density, 'pressure_growth_rate':
+                    self.pressure_growth_rate, 'pressure_decay_rate': self.
             pressure_decay_rate, 'switch_threshold': self.switch_threshold}
 
     def import_config_dict(self, data: dict):
@@ -305,7 +308,7 @@ class TrafficController:
             if cleaned:
                 self.phases = cleaned
                 self.current_phase = min(self.current_phase, len(self.
-                    phases) - 1)
+                                                                 phases) - 1)
                 self.timer = 0
         mpt = data.get('min_phase_time')
         if isinstance(mpt, (int, float)) and mpt > 0:

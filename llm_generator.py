@@ -79,9 +79,10 @@ THE DESCRIPTION OF THE PHASES SHOULD BE AS COMPLETE AND REALISTIC AS POSSIBLE FO
     mx = max([json_config["traffic_density"][a] for a in json_config["traffic_density"].keys()])
     for c in json_config["traffic_density"].keys():
         json_config["traffic_density"][c] /= mx
-        json_config["traffic_density"][c] = int(5 * json_config["traffic_density"][c])
+        json_config["traffic_density"][c] = int(50 * json_config["traffic_density"][c]) / 10
     return json_config
 
 
 if __name__ == '__main__':
     pprint(generate_config_with_llm("test"))
+

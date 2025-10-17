@@ -650,7 +650,7 @@ class Pedestrian:
     def __init__(self, pos, goal, speed, color, size):
         self.pos = list(pos)
         self.goal = goal
-        self.speed = speed
+        self.speed = speed*random.randint(3,6)
         self.color = color
         self.is_going = 0
         self.neon_color = tuple(min(255, c + 120) for c in color)

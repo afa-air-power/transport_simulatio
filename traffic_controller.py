@@ -244,12 +244,7 @@ class TrafficController:
             return self.timer > constants.ALL_RED_TIME_IN_DYNAMIC_MODE
 
         if is_any_yellow:
-            if not (is_h_green or is_v_green):
-                return self.timer >= current_phase_info['duration']
-            if self.timer < self.min_phase_time:
-                return False
-            if self.timer > self.max_phase_time:
-                return
+            return self.timer>constants.YELLOW_TIME_CONSTANT_IN_DYNAMIC_MODE
 
         return False
 

@@ -110,7 +110,7 @@ class Car:
     LANE_CHANGE_DISTANCE = constants.LANE_CHANGE_DISTANCE
 
     def __init__(self, waypoints, speed, color, from_direction, turn_direction
-        ):
+                 ):
         self.waypoints = waypoints
         self.current_waypoint_index = 0
         self.pos = list(waypoints[0])
@@ -157,7 +157,7 @@ class Car:
     def _is_on_same_lane(self, other_car, tolerance=LANE_WIDTH * 0.6):
         self_is_horizontal = abs(self.heading[0]) > abs(self.heading[1])
         other_is_horizontal = abs(other_car.heading[0]) > abs(other_car.
-            heading[1])
+                                                              heading[1])
         if self_is_horizontal != other_is_horizontal:
             return False
         my_lane_pos = self._get_current_lane_position()
@@ -256,19 +256,19 @@ class Car:
             if self.heading[0] > 0:
                 light_color = controller.get_color('west')
                 in_stop_zone = self.pos[0] < -road_half and self.pos[0
-                    ] > -road_half - stop_distance
+                ] > -road_half - stop_distance
             else:
                 light_color = controller.get_color('east')
                 in_stop_zone = self.pos[0] > road_half and self.pos[0
-                    ] < road_half + stop_distance
+                ] < road_half + stop_distance
         elif self.heading[1] > 0:
             light_color = controller.get_color('north')
             in_stop_zone = self.pos[1] < -road_half and self.pos[1
-                ] > -road_half - stop_distance
+            ] > -road_half - stop_distance
         else:
             light_color = controller.get_color('south')
             in_stop_zone = self.pos[1] > road_half and self.pos[1
-                ] < road_half + stop_distance
+            ] < road_half + stop_distance
         return in_stop_zone and light_color in ['red', 'yellow']
 
     def _get_distance_to_stopline(self):
@@ -292,7 +292,7 @@ class Car:
             if not self._is_on_same_lane(other):
                 continue
             dot_product = self.heading[0] * other.heading[0] + self.heading[1
-                ] * other.heading[1]
+            ] * other.heading[1]
             if dot_product < 0.5:
                 continue
             dx = other.pos[0] - self.pos[0]
@@ -303,7 +303,7 @@ class Car:
                 our_half_length = self.length * 2.5 / 2
                 other_half_length = other.length * 2.5 / 2
                 real_distance = (dist_center_to_center - our_half_length -
-                    other_half_length)
+                                 other_half_length)
                 if real_distance > 2 and real_distance < min_dist:
                     min_dist = real_distance
                     car_ahead = other
@@ -326,7 +326,7 @@ class Car:
         reason = None
         light_is_red = self._check_traffic_light(controller)
         dist_to_stopline = self._get_distance_to_stopline(
-            ) if light_is_red else float('inf')
+        ) if light_is_red else float('inf')
         car_ahead, dist_ahead = self._find_car_ahead(all_cars)
         closest_obstacle_dist = float('inf')
         if light_is_red and dist_to_stopline > 0:
@@ -347,7 +347,7 @@ class Car:
                         target_speed = min(self.max_speed, safe_speed * 1.05)
                     elif closest_obstacle_dist > 60:
                         target_speed = min(self.max_speed * 0.6, safe_speed *
-                            0.9)
+                                           0.9)
                     elif closest_obstacle_dist > 30:
                         target_speed = safe_speed * 0.7
                     else:
@@ -356,17 +356,17 @@ class Car:
                     leader_speed = car_ahead.speed
                     if leader_speed > 5:
                         if (closest_obstacle_dist > self.
-                            COMFORTABLE_DISTANCE * 2):
+                                COMFORTABLE_DISTANCE * 2):
                             target_speed = min(leader_speed * 1.05,
-                                safe_speed, self.max_speed)
+                                               safe_speed, self.max_speed)
                         elif closest_obstacle_dist > self.COMFORTABLE_DISTANCE:
                             target_speed = min(leader_speed, safe_speed)
                         elif closest_obstacle_dist > self.SAFE_DISTANCE * 1.5:
-                            target_speed = min(leader_speed * 0.8, 
-                                safe_speed * 0.8)
+                            target_speed = min(leader_speed * 0.8,
+                                               safe_speed * 0.8)
                         else:
-                            target_speed = min(leader_speed * 0.5, 
-                                safe_speed * 0.6)
+                            target_speed = min(leader_speed * 0.5,
+                                               safe_speed * 0.6)
                     elif closest_obstacle_dist > self.COMFORTABLE_DISTANCE:
                         target_speed = safe_speed * 0.7
                     elif closest_obstacle_dist > self.SAFE_DISTANCE * 2:
@@ -376,7 +376,7 @@ class Car:
                 else:
                     target_speed = safe_speed * 0.8
                 if (target_speed < 2 and closest_obstacle_dist > self.
-                    SAFE_DISTANCE * 1.8):
+                        SAFE_DISTANCE * 1.8):
                     target_speed = 2
                 elif target_speed < 2:
                     target_speed = 0
@@ -395,11 +395,11 @@ class Car:
         elif target_speed < self.speed:
             speed_diff = self.speed - target_speed
             if closest_obstacle_dist < self.SAFE_DISTANCE * 1.2:
-                self.speed = max(target_speed, self.speed - 
-                    emergency_deceleration * dt)
+                self.speed = max(target_speed, self.speed -
+                                 emergency_deceleration * dt)
             elif closest_obstacle_dist < self.COMFORTABLE_DISTANCE:
-                self.speed = max(target_speed, self.speed - deceleration * 
-                    1.5 * dt)
+                self.speed = max(target_speed, self.speed - deceleration *
+                                 1.5 * dt)
             else:
                 self.speed = max(target_speed, self.speed - deceleration * dt)
         effective_speed = self.speed
@@ -433,13 +433,13 @@ class Car:
             if other is self:
                 continue
             if abs(self.heading[0] - other.heading[0]) < 0.1 and abs(self.
-                heading[1] - other.heading[1]) < 0.1:
+                                                                             heading[1] - other.heading[1]) < 0.1:
                 if abs(self.heading[0]) > abs(self.heading[1]):
                     other_offset = other.pos[1] if self.heading[0
-                        ] > 0 else -other.pos[1]
+                                                   ] > 0 else -other.pos[1]
                 else:
                     other_offset = other.pos[0] if self.heading[1
-                        ] > 0 else -other.pos[0]
+                                                   ] > 0 else -other.pos[0]
                 if abs(other_offset - target_offset) < LANE_WIDTH / 2:
                     dx = other.pos[0] - self.pos[0]
                     dy = other.pos[1] - self.pos[1]
@@ -455,7 +455,7 @@ class Car:
         self.lane_change_start_pos = list(self.pos)
         road_half = NUM_LANES * LANE_WIDTH / 2
         self.lane_change_target_offset = (-road_half + target_lane *
-            LANE_WIDTH + LANE_WIDTH / 2)
+                                          LANE_WIDTH + LANE_WIDTH / 2)
         self.last_lane_change_time = 0
 
     def update_lane_change(self, dt, speed):
@@ -471,23 +471,23 @@ class Car:
             self.pos[1] += self.heading[1] * speed * dt
             if abs(self.heading[0]) > abs(self.heading[1]):
                 start_offset = self.lane_change_start_pos[1] if self.heading[0
-                    ] > 0 else -self.lane_change_start_pos[1]
+                                                                ] > 0 else -self.lane_change_start_pos[1]
                 current_offset = start_offset + (self.
-                    lane_change_target_offset - start_offset) * t
+                                                 lane_change_target_offset - start_offset) * t
                 self.pos[1] = current_offset if self.heading[0
-                    ] > 0 else -current_offset
+                                                ] > 0 else -current_offset
             else:
                 start_offset = self.lane_change_start_pos[0] if self.heading[1
-                    ] > 0 else -self.lane_change_start_pos[0]
+                                                                ] > 0 else -self.lane_change_start_pos[0]
                 current_offset = start_offset + (self.
-                    lane_change_target_offset - start_offset) * t
+                                                 lane_change_target_offset - start_offset) * t
                 self.pos[0] = current_offset if self.heading[1
-                    ] > 0 else -current_offset
+                                                ] > 0 else -current_offset
 
     def check_start_turn(self):
         road_half = NUM_LANES * LANE_WIDTH / 2
         at_intersection = -road_half < self.pos[0
-            ] < road_half and -road_half < self.pos[1] < road_half
+        ] < road_half and -road_half < self.pos[1] < road_half
         if at_intersection and self.turn_direction != 'straight':
             self.start_turn()
 
@@ -498,24 +498,24 @@ class Car:
         if self.turn_direction == 'left':
             if abs(self.heading[0]) > abs(self.heading[1]):
                 self.turn_center = [self.pos[0], self.pos[1] + turn_radius *
-                    (1 if self.heading[0] > 0 else -1)]
+                                    (1 if self.heading[0] > 0 else -1)]
                 self.turn_start_angle = math.atan2(self.pos[1] - self.
-                    turn_center[1], self.pos[0] - self.turn_center[0])
+                                                   turn_center[1], self.pos[0] - self.turn_center[0])
             else:
                 self.turn_center = [self.pos[0] - turn_radius * (1 if self.
-                    heading[1] > 0 else -1), self.pos[1]]
+                                                                 heading[1] > 0 else -1), self.pos[1]]
                 self.turn_start_angle = math.atan2(self.pos[1] - self.
-                    turn_center[1], self.pos[0] - self.turn_center[0])
+                                                   turn_center[1], self.pos[0] - self.turn_center[0])
         elif abs(self.heading[0]) > abs(self.heading[1]):
             self.turn_center = [self.pos[0], self.pos[1] - turn_radius * (1 if
-                self.heading[0] > 0 else -1)]
+                                                                          self.heading[0] > 0 else -1)]
             self.turn_start_angle = math.atan2(self.pos[1] - self.
-                turn_center[1], self.pos[0] - self.turn_center[0])
+                                               turn_center[1], self.pos[0] - self.turn_center[0])
         else:
             self.turn_center = [self.pos[0] + turn_radius * (1 if self.
-                heading[1] > 0 else -1), self.pos[1]]
+                                                             heading[1] > 0 else -1), self.pos[1]]
             self.turn_start_angle = math.atan2(self.pos[1] - self.
-                turn_center[1], self.pos[0] - self.turn_center[0])
+                                               turn_center[1], self.pos[0] - self.turn_center[0])
 
     def update_turn(self, dt, speed):
         turn_radius = 35
@@ -526,7 +526,7 @@ class Car:
             self.turn_progress = 0.0
             if self.turn_direction == 'left':
                 if abs(self.original_heading[0]) > abs(self.original_heading[1]
-                    ):
+                                                       ):
                     self.heading = [0, self.original_heading[0]]
                     self.target_heading = [0, self.original_heading[0]]
                 else:
@@ -534,7 +534,7 @@ class Car:
                     self.target_heading = [-self.original_heading[1], 0]
             elif self.turn_direction == 'right':
                 if abs(self.original_heading[0]) > abs(self.original_heading[1]
-                    ):
+                                                       ):
                     self.heading = [0, -self.original_heading[0]]
                     self.target_heading = [0, -self.original_heading[0]]
                 else:
@@ -544,15 +544,15 @@ class Car:
             eased_progress = self.ease_in_out_quintic(self.turn_progress)
             total_angle = math.pi / 2
             current_angle = (self.turn_start_angle + total_angle *
-                eased_progress * (1 if self.turn_direction == 'left' else -1))
+                             eased_progress * (1 if self.turn_direction == 'left' else -1))
             self.pos[0] = self.turn_center[0] + turn_radius * math.cos(
                 current_angle)
             self.pos[1] = self.turn_center[1] + turn_radius * math.sin(
                 current_angle)
             self.heading[0] = -math.sin(current_angle) * (1 if self.
-                turn_direction == 'left' else -1)
+                                                          turn_direction == 'left' else -1)
             self.heading[1] = math.cos(current_angle) * (1 if self.
-                turn_direction == 'left' else -1)
+                                                         turn_direction == 'left' else -1)
 
     @staticmethod
     def ease_in_out_cubic(t):
@@ -575,49 +575,50 @@ class Car:
         car_width = self.width * 2.5
         glow_size = int(8 + 4 * math.sin(self.glow_pulse))
         glow_surf = pygame.Surface((car_length + glow_size * 2, car_width +
-            glow_size * 2), pygame.SRCALPHA)
+                                    glow_size * 2), pygame.SRCALPHA)
         for i in range(glow_size, 0, -1):
             alpha = int(80 * (1 - i / glow_size))
             glow_color = *self.neon_color, alpha
-            pygame.draw.rect(glow_surf, glow_color, (glow_size - i, 
-                glow_size - i, car_length + i * 2, car_width + i * 2),
-                border_radius=6)
+            pygame.draw.rect(glow_surf, glow_color, (glow_size - i,
+                                                     glow_size - i, car_length + i * 2, car_width + i * 2),
+                             border_radius=6)
         rotated_glow = pygame.transform.rotate(glow_surf, -angle)
         glow_rect = rotated_glow.get_rect(center=(x, y))
         screen.blit(rotated_glow, glow_rect)
         rect_surf = pygame.Surface((car_length, car_width), pygame.SRCALPHA)
         dark_color = tuple(min(80, c // 3) for c in self.color)
         pygame.draw.rect(rect_surf, dark_color, (0, 0, car_length,
-            car_width), border_radius=6)
+                                                 car_width), border_radius=6)
         for i in range(3):
             pygame.draw.rect(rect_surf, (*self.neon_color, 150 - i * 50), (
                 i, i, car_length - i * 2, car_width - i * 2), 2,
-                border_radius=6)
+                             border_radius=6)
         window_color = 20, 40, 60, 200
         window_width = car_length * 0.3
         window_spacing = car_length * 0.15
         pygame.draw.rect(rect_surf, window_color, (car_length -
-            window_spacing - window_width, car_width * 0.15, window_width, 
-            car_width * 0.7), border_radius=3)
-        pygame.draw.rect(rect_surf, window_color, (window_spacing, 
-            car_width * 0.15, window_width, car_width * 0.7), border_radius=3)
+                                                   window_spacing - window_width, car_width * 0.15, window_width,
+                                                   car_width * 0.7), border_radius=3)
+        pygame.draw.rect(rect_surf, window_color, (window_spacing,
+                                                   car_width * 0.15, window_width, car_width * 0.7), border_radius=3)
         pygame.draw.rect(rect_surf, (*self.neon_color, 100), (car_length -
-            window_spacing - window_width, car_width * 0.15, window_width, 
-            car_width * 0.7), 1, border_radius=3)
+                                                              window_spacing - window_width, car_width * 0.15,
+                                                              window_width,
+                                                              car_width * 0.7), 1, border_radius=3)
         if self.is_waiting:
             light_x = 8
             for offset in [0.25, 0.75]:
                 glow_surf_light = pygame.Surface((16, 16), pygame.SRCALPHA)
                 pygame.draw.circle(glow_surf_light, (255, 0, 0, 150), (8, 8), 8
-                    )
+                                   )
                 pygame.draw.circle(glow_surf_light, (255, 0, 0, 80), (8, 8), 10
-                    )
+                                   )
                 rect_surf.blit(glow_surf_light, (light_x - 8, car_width *
-                    offset - 8))
+                                                 offset - 8))
                 pygame.draw.circle(rect_surf, (255, 50, 50), (int(light_x),
-                    int(car_width * offset)), 4)
+                                                              int(car_width * offset)), 4)
                 pygame.draw.circle(rect_surf, (255, 150, 150), (int(light_x
-                    ), int(car_width * offset)), 2)
+                                                                    ), int(car_width * offset)), 2)
         else:
             light_x = car_length - 8
             for offset in [0.25, 0.75]:
@@ -627,17 +628,18 @@ class Car:
                 pygame.draw.circle(glow_surf_light, (150, 220, 255, 60), (
                     10, 10), 12)
                 rect_surf.blit(glow_surf_light, (light_x - 10, car_width *
-                    offset - 10))
+                                                 offset - 10))
                 pygame.draw.circle(rect_surf, (200, 240, 255), (int(light_x
-                    ), int(car_width * offset)), 4)
+                                                                    ), int(car_width * offset)), 4)
                 pygame.draw.circle(rect_surf, (255, 255, 255), (int(light_x
-                    ), int(car_width * offset)), 2)
+                                                                    ), int(car_width * offset)), 2)
         stripe_y_top = car_width * 0.2
         stripe_y_bottom = car_width * 0.8
-        pygame.draw.line(rect_surf, (*self.neon_color, 180), (car_length * 
-            0.2, stripe_y_top), (car_length * 0.8, stripe_y_top), 2)
-        pygame.draw.line(rect_surf, (*self.neon_color, 180), (car_length * 
-            0.2, stripe_y_bottom), (car_length * 0.8, stripe_y_bottom), 2)
+        pygame.draw.line(rect_surf, (*self.neon_color, 180), (car_length *
+                                                              0.2, stripe_y_top), (car_length * 0.8, stripe_y_top), 2)
+        pygame.draw.line(rect_surf, (*self.neon_color, 180), (car_length *
+                                                              0.2, stripe_y_bottom),
+                         (car_length * 0.8, stripe_y_bottom), 2)
         rotated = pygame.transform.rotate(rect_surf, -angle)
         rect = rotated.get_rect(center=(x, y))
         screen.blit(rotated, rect)
@@ -650,17 +652,16 @@ class Pedestrian:
         self.goal = goal
         self.speed = speed
         self.color = color
+        self.is_going = 0
         self.neon_color = tuple(min(255, c + 120) for c in color)
         self.size = size
         self.glow_pulse = random.uniform(0, math.pi * 2)
 
     def update(self, dt, controller):
         self.glow_pulse += dt * 4
-        can_cross = controller.is_all_red()
-        road_half = NUM_LANES * LANE_WIDTH / 2
-        on_intersection = -road_half < self.pos[0
-            ] < road_half and -road_half < self.pos[1] < road_half
-        if on_intersection or can_cross:
+        can_cross = controller.is_all_red() and controller.timer < 0.2
+        if can_cross or self.is_going:
+            self.is_going = 1
             dx = self.goal[0] - self.pos[0]
             dy = self.goal[1] - self.pos[1]
             dist = math.hypot(dx, dy)
@@ -672,16 +673,16 @@ class Pedestrian:
     def draw(self, screen):
         glow_intensity = int(100 + 60 * math.sin(self.glow_pulse))
         glow_surf = pygame.Surface((self.size * 6, self.size * 6), pygame.
-            SRCALPHA)
+                                   SRCALPHA)
         for i in range(self.size * 2, 0, -1):
             alpha = int(glow_intensity * (1 - i / (self.size * 2)))
             pygame.draw.circle(glow_surf, (*self.neon_color, alpha), (self.
-                size * 3, self.size * 3), i)
+                                                                      size * 3, self.size * 3), i)
         screen.blit(glow_surf, (int(self.pos[0]) - self.size * 3, int(self.
-            pos[1]) - self.size * 3))
+                                                                      pos[1]) - self.size * 3))
         dark_color = tuple(c // 3 for c in self.color)
         pygame.draw.circle(screen, dark_color, (int(self.pos[0]), int(self.
-            pos[1])), self.size)
+                                                                      pos[1])), self.size)
         pygame.draw.circle(screen, self.neon_color, (int(self.pos[0]), int(
             self.pos[1])), self.size, 2)
         pygame.draw.circle(screen, self.neon_color, (int(self.pos[0]), int(
@@ -692,10 +693,10 @@ class TrafficSimulation:
 
     def __init__(self):
         self.controller = TrafficController()
-        self.cars = []
-        self.peds = []
-        self.pedestrians = self.peds
-        self.paused = False
+        self.cars: list[Car] = []
+        self.peds: list[Pedestrian] = []
+        self.pedestrians: list[Pedestrian] = self.peds
+        self.paused: bool = False
         self.last_car_spawns = {d: (0) for d in DIR_INS}
         self.last_ped_spawn = 0
         self.ped_spawn_interval = 3.0
@@ -726,34 +727,34 @@ class TrafficSimulation:
             spawn_x = -window_half_width - spawn_margin
             for car in self.cars:
                 if car.from_direction == 'from_west' and abs(car.pos[0] -
-                    spawn_x) < min_spawn_distance:
+                                                             spawn_x) < min_spawn_distance:
                     return False
         elif direction == 'from_east':
             spawn_x = window_half_width + spawn_margin
             for car in self.cars:
                 if car.from_direction == 'from_east' and abs(car.pos[0] -
-                    spawn_x) < min_spawn_distance:
+                                                             spawn_x) < min_spawn_distance:
                     return False
         elif direction == 'from_north':
             spawn_y = -window_half_height - spawn_margin
             for car in self.cars:
                 if car.from_direction == 'from_north' and abs(car.pos[1] -
-                    spawn_y) < min_spawn_distance:
+                                                              spawn_y) < min_spawn_distance:
                     return False
         elif direction == 'from_south':
             spawn_y = window_half_height + spawn_margin
             for car in self.cars:
                 if car.from_direction == 'from_south' and abs(car.pos[1] -
-                    spawn_y) < min_spawn_distance:
+                                                              spawn_y) < min_spawn_distance:
                     return False
         return True
 
     def spawn_car(self, direction):
         lane = random.randint(0, 1)
         turn_direction = random.choices(['straight', 'left', 'right'],
-            weights=[0.6, 0.2, 0.2])[0]
+                                        weights=[0.6, 0.2, 0.2])[0]
         waypoints = PathGenerator.generate_waypoints(direction, lane,
-            turn_direction)
+                                                     turn_direction)
         speed = random.uniform(SPEED_MIN, SPEED_MAX)
         color = random.choice([RED, GREEN, BLUE, YELLOW, WHITE])
         car = Car(waypoints, speed, color, direction, turn_direction)
@@ -770,8 +771,8 @@ class TrafficSimulation:
         else:
             goal_pos = -start_pos[0], start_pos[1]
         speed = random.uniform(PED_SPEED_MIN, PED_SPEED_MAX)
-        self.peds.append(Pedestrian(start_pos, goal_pos, speed, (200, 200, 
-            255), 2))
+        self.peds.append(Pedestrian(start_pos, goal_pos, speed, (200, 200,
+                                                                 255), 2))
 
     def update(self, dt):
         if self.paused:
@@ -807,8 +808,8 @@ class TrafficSimulation:
                     self.waiting_cars_v += 1
                     self.v_wait_time_sq_sum += car.waiting_time ** 2
         self.controller.update(dt, self.waiting_cars_h, self.waiting_cars_v,
-            self.h_wait_time_sq_sum, self.v_wait_time_sq_sum,
-            visible_cars_h, visible_cars_v)
+                               self.h_wait_time_sq_sum, self.v_wait_time_sq_sum,
+                               visible_cars_h, visible_cars_v)
         self.current_phase = self.controller.current_phase
         self.phase_time = self.controller.timer
         for direction in DIR_INS:
@@ -817,15 +818,14 @@ class TrafficSimulation:
                 interval = 10.0 / density
                 self.last_car_spawns[direction] += dt
                 if self.last_car_spawns[direction] >= interval and len(self
-                    .cars) < MAX_CARS:
+                                                                               .cars) < MAX_CARS:
                     if self.can_spawn_car(direction):
                         self.spawn_car(direction)
                         self.last_car_spawns[direction] = 0
                     else:
                         self.last_car_spawns[direction] = interval - 0.5
         self.last_ped_spawn += dt
-        if self.last_ped_spawn > self.ped_spawn_interval and len(self.peds
-            ) < 50:
+        if self.last_ped_spawn > self.ped_spawn_interval and len(self.peds) < 50:
             self.spawn_pedestrian()
             self.last_ped_spawn = 0
         for car in self.cars:
@@ -835,10 +835,10 @@ class TrafficSimulation:
         from constants import screen_config
         limit_x = screen_config.sim_width / 2 + 100
         limit_y = screen_config.sim_height / 2 + 100
-        self.cars = [c for c in self.cars if not c.is_path_completed() and 
-            -limit_x < c.pos[0] < limit_x and -limit_y < c.pos[1] < limit_y]
+        self.cars = [c for c in self.cars if not c.is_path_completed() and
+                     -limit_x < c.pos[0] < limit_x and -limit_y < c.pos[1] < limit_y]
         self.peds[:] = [p for p in self.peds if math.hypot(p.pos[0] - p.
-            goal[0], p.pos[1] - p.goal[1]) > 5]
+                                                           goal[0], p.pos[1] - p.goal[1]) > 5]
 
     def draw(self, screen):
         for car in self.cars:

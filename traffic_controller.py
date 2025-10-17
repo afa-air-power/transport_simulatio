@@ -1,6 +1,8 @@
 import time
 import math
 from pygame.locals import SRCALPHA
+
+import constants
 from constants import *
 
 
@@ -36,6 +38,7 @@ class TrafficLight:
         self.orientation = orientation
         self.current_color = 'red'
         if orientation == 'vertical':
+            self.set_color("red")
             self.lenses = [LightLens(RED, (0, -20)), LightLens(YELLOW, (0,
                                                                         0)), LightLens(GREEN, (0, 20))]
         else:
@@ -63,6 +66,8 @@ class TrafficLight:
             lens.draw(screen, base_pos, current_time)
 
 
+
+
 class TrafficController:
 
     def __init__(self):
@@ -73,12 +78,15 @@ class TrafficController:
 
     def reset_to_defaults(self):
         self.phases = [{'duration': 30, 'west': 'green', 'east': 'green',
-                        'north': 'red', 'south': 'red'}, {'duration': 3, 'west':
-            'yellow', 'east': 'yellow', 'north': 'red', 'south': 'red'}, {
-                           'duration': 2, 'west': 'red', 'east': 'red', 'north': 'red',
-                           'south': 'red'}, {'duration': 30, 'west': 'red', 'east': 'red',
-                                             'north': 'green', 'south': 'green'}, {'duration': 3, 'west':
-            'red', 'east': 'red', 'north': 'yellow', 'south': 'yellow'}, {
+                        'north': 'red', 'south': 'red'},
+                       {'duration': 3, 'west':
+                           'yellow', 'east': 'yellow', 'north': 'red', 'south': 'red'},
+
+                       {'duration': 30, 'west': 'red', 'east': 'red',
+                        'north': 'green', 'south': 'green'},
+                       {'duration': 3, 'west':
+                           'red', 'east': 'red', 'north': 'yellow', 'south': 'yellow'},
+                       {
                            'duration': 2, 'west': 'red', 'east': 'red', 'north': 'red',
                            'south': 'red'}]
         self.current_phase = 0
@@ -165,7 +173,7 @@ class TrafficController:
             if self.evaluate_dynamic_switch():
                 should_switch = True
         elif self.timer >= self.phases[self.current_phase]['duration']:
-            # should_switch = True
+            should_switch = True
             pass
         if should_switch:
             self.timer = 0
@@ -190,8 +198,16 @@ class TrafficController:
     def solve_differential_equation(self, dt, waiting_h, waiting_v,
                                     visible_h, visible_v):
         current_phase_info = self.phases[self.current_phase]
-        is_h_green = current_phase_info['horiz'] == 'green'
-        is_v_green = current_phase_info['vert'] == 'green'
+        west = current_phase_info.get('west', current_phase_info.get(
+            'horiz', 'red'))
+        east = current_phase_info.get('east', current_phase_info.get(
+            'horiz', 'red'))
+        north = current_phase_info.get('north', current_phase_info.get(
+            'vert', 'red'))
+        south = current_phase_info.get('south', current_phase_info.get(
+            'vert', 'red'))
+        is_h_green = west == 'green' or east == 'green'
+        is_v_green = north == 'green' or south == 'green'
         h_traffic_load = waiting_h + visible_h * 0.3
         v_traffic_load = waiting_v + visible_v * 0.3
         dP_h = self.pressure_growth_rate * h_traffic_load * dt
@@ -218,14 +234,16 @@ class TrafficController:
         is_h_green = west == 'green' or east == 'green'
         is_v_green = north == 'green' or south == 'green'
         is_any_yellow = any([x == 'yellow' for x in [north, west, north, south]])
-        is_all_red=all([x == 'red' for x in [north, west, north, south]])
+        is_all_red = all([x == 'red' for x in [north, west, north, south]])
 
         if is_h_green:
-            return self.pressure_v - self.pressure_h > 100
+            return self.pressure_v - self.pressure_h > constants.SWITCH_DELTA_IN_DYNAMIC_MODE
         if is_v_green:
-            return self.pressure_h - self.pressure_v > 100
+            return self.pressure_h - self.pressure_v > constants.SWITCH_DELTA_IN_DYNAMIC_MODE
+        if is_all_red:
+            return self.timer > constants.ALL_RED_TIME_IN_DYNAMIC_MODE
 
-        if is_any_yellow or is_all_red:
+        if is_any_yellow:
             if not (is_h_green or is_v_green):
                 return self.timer >= current_phase_info['duration']
             if self.timer < self.min_phase_time:

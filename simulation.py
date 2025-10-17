@@ -1,7 +1,7 @@
 import pygame
 import random
 import math
-
+import basic
 import constants
 from constants import *
 from traffic_controller import TrafficController
@@ -103,14 +103,14 @@ class PathGenerator:
         return waypoints
 
 
-class Car:
+class Car(basic.basic_similation_element):
     SAFE_DISTANCE = constants.SAFE_DISTANCE
     COMFORTABLE_DISTANCE = constants.COMFORTABLE_DISTANCE
     WAYPOINT_REACH_DISTANCE = constants.WAYPOINT_REACH_DISTANCE
     LANE_CHANGE_DISTANCE = constants.LANE_CHANGE_DISTANCE
 
-    def __init__(self, waypoints, speed, color, from_direction, turn_direction
-                 ):
+    def __init__(self, waypoints, speed, color, from_direction, turn_direction):
+        super().__init__(__name__)
         self.waypoints = waypoints
         self.current_waypoint_index = 0
         self.pos = list(waypoints[0])
@@ -645,9 +645,10 @@ class Car:
         screen.blit(rotated, rect)
 
 
-class Pedestrian:
+class Pedestrian(basic.basic_similation_element):
 
     def __init__(self, pos, goal, speed, color, size):
+        super().__init__()
         self.pos = list(pos)
         self.goal = goal
         self.speed = speed*random.randint(3,6)

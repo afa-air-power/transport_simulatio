@@ -66,8 +66,6 @@ class TrafficLight:
             lens.draw(screen, base_pos, current_time)
 
 
-
-
 class TrafficController:
 
     def __init__(self):
@@ -77,18 +75,12 @@ class TrafficController:
         self.update_lights()
 
     def reset_to_defaults(self):
-        self.phases = [{'duration': 30, 'west': 'green', 'east': 'green',
-                        'north': 'red', 'south': 'red'},
-                       {'duration': 3, 'west':
-                           'yellow', 'east': 'yellow', 'north': 'red', 'south': 'red'},
-
-                       {'duration': 30, 'west': 'red', 'east': 'red',
-                        'north': 'green', 'south': 'green'},
-                       {'duration': 3, 'west':
-                           'red', 'east': 'red', 'north': 'yellow', 'south': 'yellow'},
-                       {
-                           'duration': 2, 'west': 'red', 'east': 'red', 'north': 'red',
-                           'south': 'red'}]
+        self.phases = [
+            {'duration': 30, 'west': 'green', 'east': 'green','north': 'red', 'south': 'red'},
+            {'duration': 3, 'west': 'yellow', 'east': 'yellow', 'north': 'red', 'south': 'red'},
+            {'duration': 30, 'west': 'red', 'east': 'red', 'north': 'green', 'south': 'green'},
+            {'duration': 3, 'west': 'red', 'east': 'red', 'north': 'yellow', 'south': 'yellow'}
+        ]
         self.current_phase = 0
         self.timer = 0
         self.mode = 'static'
@@ -97,7 +89,7 @@ class TrafficController:
         self.dynamic_logic_factor = 0.99
         self.weighted_h_penalty = 0.0
         self.weighted_v_penalty = 0.0
-        self.traffic_density = {d: (5.0) for d in DIR_INS}
+        self.traffic_density = {d: (4.0) for d in DIR_INS}
         self.pressure_h = 0.0
         self.pressure_v = 0.0
         self.pressure_growth_rate = 0.5
@@ -244,7 +236,7 @@ class TrafficController:
             return self.timer > constants.ALL_RED_TIME_IN_DYNAMIC_MODE
 
         if is_any_yellow:
-            return self.timer>constants.YELLOW_TIME_CONSTANT_IN_DYNAMIC_MODE
+            return self.timer > constants.YELLOW_TIME_CONSTANT_IN_DYNAMIC_MODE
 
         return False
 

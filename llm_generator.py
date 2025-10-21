@@ -75,7 +75,7 @@ THE DESCRIPTION OF THE PHASES SHOULD BE AS COMPLETE AND REALISTIC AS POSSIBLE FO
 
     lm_message = json.loads(request.content.decode('utf-8'))['choices'][0]['message']['content']
     json_config = json.loads(lm_message)
-    if False:
+    if 1:
         mx = max([json_config["traffic_density"][a] for a in json_config["traffic_density"].keys()])
         for c in json_config["traffic_density"].keys():
             json_config["traffic_density"][c] /= mx

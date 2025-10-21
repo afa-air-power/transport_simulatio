@@ -326,8 +326,7 @@ class Car(basic.basic_similation_element,TrafficController):
         should_stop = False
         reason = None
         light_is_red = self._check_traffic_light(controller)
-        dist_to_stopline = self._get_distance_to_stopline(
-        ) if light_is_red else float('inf')
+        dist_to_stopline = self._get_distance_to_stopline() - constants.STOP_LINE_PREFIX if light_is_red else float('inf')
         car_ahead, dist_ahead = self._find_car_ahead(all_cars)
         closest_obstacle_dist = float('inf')
         if light_is_red and dist_to_stopline > 0:

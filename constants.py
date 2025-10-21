@@ -77,6 +77,7 @@ LANE_CHANGE_DISTANCE = 50
 ALL_RED_TIME_IN_DYNAMIC_MODE = 8
 SWITCH_DELTA_IN_DYNAMIC_MODE = 220
 YELLOW_TIME_CONSTANT_IN_DYNAMIC_MODE=1
+STOP_LINE_PREFIX=20
 DIR_INS = ['from_west', 'from_east', 'from_north', 'from_south']
 TURN_PROBS = [0.6, 0.2, 0.2]
 TURN_HEADINGS = {'from_west': {(0): (1, 0), (1): (0, 1), (2): (0, -1)},

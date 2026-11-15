@@ -1,0 +1,44 @@
+{
+  "mode": "static",
+  "phases": [
+    {
+      "duration": 30,
+      "horiz": "green",
+      "vert": "red"
+    },
+    {
+      "duration": 3,
+      "horiz": "yellow",
+      "vert": "red"
+    },
+    {
+      "duration": 2,
+      "horiz": "red",
+      "vert": "red"
+    },
+    {
+      "duration": 30,
+      "vert": "green",
+      "horiz": "red"
+    },
+    {
+      "duration": 3,
+      "vert": "yellow",
+      "horiz": "red"
+    },
+    {
+      "duration": 2,
+      "vert": "red",
+      "horiz": "red"
+    }
+  ],
+  "min_phase_time": 5.0,
+  "max_phase_time": 60.0,
+  "dynamic_logic_factor": 0.99,
+  "traffic_density": {
+    "from_west": 5.0,
+    "from_east": 5.0,
+    "from_north": 5.0,
+    "from_south": 5.0
+  }
+}
